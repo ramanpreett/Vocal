@@ -90,6 +90,7 @@ async function getCollections() {
     appState: db.collection("appState"),
     resources: db.collection("resources"),
     users: db.collection("users"),
+    messages: db.collection("messages"),
   };
 }
 
@@ -114,6 +115,59 @@ async function handleApi(request, response, route) {
     const state = await readWorkspaceState();
     sendJson(response, 200, state);
     return;
+  }
+
+  if (route === "/api/messages") {
+    const currentUser = await getCurrentUser(request);
+    if (!currentUser) {
+      sendJson(response, 401, { error: "Not signed in" });
+      return;
+    }
+
+    if (request.method === "GET") {
+      const { messages } = await getCollections();
+      const userMessages = await messages.find({
+        $or: [{ sender: currentUser.username }, { recipient: currentUser.username }]
+      }).sort({ createdAt: 1 }).toArray();
+      
+      sendJson(response, 200, { messages: userMessages.map(m => {
+        const { _id, ...rest } = m;
+        return rest;
+      })});
+      return;
+    }
+
+    if (request.method === "POST") {
+      const body = await readJson(request);
+      const recipient = String(body.recipient || "").trim();
+      const content = String(body.content || "").trim();
+
+      if (!recipient || !content) {
+        sendJson(response, 400, { error: "Recipient and content are required." });
+        return;
+      }
+
+      const { users, messages } = await getCollections();
+      const recipientUser = await users.findOne({ username: { $regex: new RegExp("^" + recipient + "$", "i") } });
+      
+      if (!recipientUser) {
+        sendJson(response, 404, { error: "Recipient not found." });
+        return;
+      }
+
+      const message = {
+        id: crypto.randomUUID(),
+        sender: currentUser.username,
+        recipient: recipientUser.username,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+
+      await messages.insertOne(message);
+      const { _id, ...rest } = message;
+      sendJson(response, 201, { message: rest });
+      return;
+    }
   }
 
   if (route.startsWith("/api/auth/")) {

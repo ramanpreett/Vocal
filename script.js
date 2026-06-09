@@ -9,8 +9,9 @@ const starterSubjects = [
   "Computer Applications",
 ];
 
-let state = { subjects: starterSubjects, resources: [] };
+let state = { subjects: starterSubjects, resources: [], messages: [] };
 let activeSubject = "All Subjects";
+let activeConversation = null;
 
 const subjectList = document.querySelector("#subjectList");
 const uploadSubject = document.querySelector("#uploadSubject");
@@ -28,8 +29,15 @@ const pageTitle = document.querySelector("#pageTitle");
 const contentHeading = document.querySelector("#contentHeading");
 const searchInput = document.querySelector("#searchInput");
 const dashboardTab = document.querySelector("#dashboardTab");
+const messagesTab = document.querySelector("#messagesTab");
 const uploadTab = document.querySelector("#uploadTab");
 const profileTab = document.querySelector("#profileTab");
+const messagesScreen = document.querySelector("#messagesScreen");
+const conversationsList = document.querySelector("#conversationsList");
+const messagesFeed = document.querySelector("#messagesFeed");
+const messageForm = document.querySelector("#messageForm");
+const messageInput = document.querySelector("#messageInput");
+const activeConversationHeader = document.querySelector("#activeConversationHeader");
 const dashboardScreen = document.querySelector("#dashboardScreen");
 const uploadScreen = document.querySelector("#uploadScreen");
 const profileScreen = document.querySelector("#profileScreen");
@@ -62,6 +70,7 @@ const modalMeta = document.querySelector("#modalMeta");
 const modalTitle = document.querySelector("#modalTitle");
 const modalDescription = document.querySelector("#modalDescription");
 const modalActions = document.querySelector("#modalActions");
+const modalMessageButton = document.querySelector("#modalMessageButton");
 
 let activeView = "dashboard";
 let authMode = "login";
@@ -146,6 +155,31 @@ dashboardTab.addEventListener("click", () => {
   render();
 });
 
+messagesTab.addEventListener("click", () => {
+  activeView = "messages";
+  if (currentUser) fetchMessages();
+  render();
+});
+
+messageForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!activeConversation) return;
+  const content = messageInput.value.trim();
+  if (!content) return;
+  
+  const response = await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: activeConversation, content }),
+  });
+  if (response.ok) {
+    const data = await response.json();
+    state.messages.push(data.message);
+    messageInput.value = "";
+    renderMessages();
+  }
+});
+
 uploadTab.addEventListener("click", () => {
   activeView = "upload";
   render();
@@ -199,11 +233,13 @@ searchInput.addEventListener("input", () => {
 });
 
 contentGrid.addEventListener("click", (event) => {
+  if (handleMessageClick(event)) return;
   if (handleDeleteClick(event)) return;
   handleOpenPostClick(event);
 });
 
 profileGrid.addEventListener("click", (event) => {
+  if (handleMessageClick(event)) return;
   if (handleDeleteClick(event)) return;
   handleOpenPostClick(event);
 });
@@ -228,6 +264,18 @@ document.addEventListener("keydown", (event) => {
     closePostModal();
   }
 });
+
+function handleMessageClick(event) {
+  const messageButton = event.target.closest("[data-message-user]");
+  if (!messageButton) return false;
+
+  const user = messageButton.dataset.messageUser;
+  activeConversation = user;
+  activeView = "messages";
+  if (currentUser) fetchMessages();
+  render();
+  return true;
+}
 
 async function handleDeleteClick(event) {
   const deleteButton = event.target.closest("[data-delete-id]");
@@ -369,12 +417,16 @@ function renderAuth() {
 function renderView() {
   const isUpload = activeView === "upload";
   const isProfile = activeView === "profile";
+  const isMessages = activeView === "messages";
   uploadScreen.classList.toggle("hidden", !isUpload);
-  dashboardScreen.classList.toggle("hidden", isUpload || isProfile);
+  dashboardScreen.classList.toggle("hidden", isUpload || isProfile || isMessages);
   profileScreen.classList.toggle("hidden", !isProfile);
+  messagesScreen.classList.toggle("hidden", !isMessages);
   uploadTab.classList.toggle("active", isUpload);
   profileTab.classList.toggle("active", isProfile);
+  messagesTab.classList.toggle("active", isMessages);
   dashboardTab.classList.toggle("active", activeView === "dashboard");
+  if (isMessages) renderMessages();
 }
 
 function updateSidebarToggleLabel() {
@@ -501,6 +553,20 @@ function openPostModal(resource) {
     <a class="link-button" href="${resource.dataUrl}" download="${escapeHtml(resource.fileName)}">Download</a>
     ${deleteAction}
   `;
+  
+  if (!currentUser || resource.teacher.toLowerCase() === currentUser.username.toLowerCase()) {
+    modalMessageButton.classList.add("hidden");
+  } else {
+    modalMessageButton.classList.remove("hidden");
+    modalMessageButton.onclick = () => {
+      closePostModal();
+      activeConversation = resource.teacher;
+      activeView = "messages";
+      if (currentUser) fetchMessages();
+      render();
+    };
+  }
+  
   postModal.classList.remove("hidden");
   document.body.classList.add("modal-open");
   modalCloseButton.focus();
@@ -518,6 +584,10 @@ function renderResourceCard(resource) {
   const deleteAction = isOwnResource(resource)
     ? `<button class="delete-button" type="button" data-delete-id="${resource.id}">Delete</button>`
     : "";
+    
+  const messageAction = (!currentUser || isOwnResource(resource))
+    ? ""
+    : `<button class="secondary-button compact-button" type="button" data-message-user="${escapeHtml(resource.teacher)}" style="margin-left: auto;">Message</button>`;
 
   return `
     <article class="resource-card" data-open-post-id="${resource.id}" tabindex="0">
@@ -541,6 +611,7 @@ function renderResourceCard(resource) {
         <div class="post-actions">
           <a class="link-button" href="${resource.dataUrl}" download="${escapeHtml(resource.fileName)}">Download</a>
           ${deleteAction}
+          ${messageAction}
         </div>
       </div>
     </article>
@@ -629,4 +700,69 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+async function fetchMessages() {
+  if (!currentUser) return;
+  const response = await fetch("/api/messages");
+  if (response.ok) {
+    const data = await response.json();
+    state.messages = data.messages;
+    renderMessages();
+  }
+}
+
+function renderMessages() {
+  if (activeView !== "messages") return;
+  if (!currentUser) {
+    messagesFeed.innerHTML = `<div class="empty-state"><h3>Not signed in</h3><p>Sign in to view your messages.</p></div>`;
+    return;
+  }
+  
+  const conversations = new Set();
+  state.messages.forEach(m => {
+    if (m.sender !== currentUser.username) conversations.add(m.sender);
+    if (m.recipient !== currentUser.username) conversations.add(m.recipient);
+  });
+  
+  const convoList = Array.from(conversations);
+  if (!activeConversation && convoList.length > 0) {
+    activeConversation = convoList[0];
+  }
+
+  conversationsList.innerHTML = convoList.length === 0 
+    ? `<div style="padding:1rem;color:var(--text-dim)">No conversations yet.</div>`
+    : convoList.map(user => `
+      <button class="subject-button ${user === activeConversation ? 'active' : ''}" type="button" onclick="activeConversation='${escapeHtml(user)}'; renderMessages();">
+        <span>${escapeHtml(user)}</span>
+      </button>
+    `).join("");
+
+  if (activeConversation) {
+    activeConversationHeader.textContent = `Chat with ${activeConversation}`;
+    messageForm.classList.remove("hidden");
+    
+    const chatMessages = state.messages.filter(m => 
+      (m.sender === currentUser.username && m.recipient === activeConversation) ||
+      (m.sender === activeConversation && m.recipient === currentUser.username)
+    ).sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    messagesFeed.innerHTML = chatMessages.length === 0
+      ? `<div class="empty-state" style="padding:2rem;">Say hi to ${escapeHtml(activeConversation)}!</div>`
+      : chatMessages.map(m => {
+          const isMine = m.sender === currentUser.username;
+          return `
+            <div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">
+              <div class="chat-sender">${escapeHtml(m.sender)}</div>
+              <div class="chat-content">${escapeHtml(m.content)}</div>
+            </div>
+          `;
+        }).join("");
+        
+    messagesFeed.scrollTop = messagesFeed.scrollHeight;
+  } else {
+    activeConversationHeader.textContent = "Select a conversation";
+    messageForm.classList.add("hidden");
+    messagesFeed.innerHTML = "";
+  }
 }
