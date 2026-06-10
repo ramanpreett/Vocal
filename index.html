@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vocal Teach Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -94,7 +95,7 @@
 
         <form id="uploadForm" class="upload-form">
           <label class="media-picker" for="contentFile">
-            <input id="contentFile" type="file" accept="application/pdf,image/*,video/*" required />
+            <input id="contentFile" type="file" accept="application/pdf,image/*,video/*" multiple required />
             <span class="media-picker-icon">+</span>
             <strong id="fileName">Choose teaching content</strong>
             <small>Upload a PDF handout, workshop diagram, photo, or video lesson.</small>
@@ -138,7 +139,10 @@
 
       <section id="profileScreen" class="profile-screen hidden" aria-labelledby="profileName">
         <header class="profile-header">
-          <span id="profileAvatar" class="profile-avatar">T</span>
+          <label class="profile-avatar-container" title="Change profile picture" for="avatarUpload">
+            <span id="profileAvatar" class="profile-avatar">T</span>
+            <input type="file" id="avatarUpload" accept="image/*" class="hidden" />
+          </label>
           <div class="profile-info">
             <div class="profile-title-row">
               <h2 id="profileName">Teacher</h2>
@@ -203,6 +207,20 @@
       </article>
     </div>
 
+    <div id="cropModal" class="post-modal hidden">
+      <div class="post-modal-card" style="display: flex; flex-direction: column; align-items: center; padding: 24px;">
+        <h2 style="margin-bottom: 16px;">Crop Profile Picture</h2>
+        <div class="crop-container" style="width: 100%; max-width: 400px; height: 400px; margin-bottom: 20px;">
+          <img id="cropImage" src="" style="display: block; max-width: 100%;" />
+        </div>
+        <div style="display: flex; gap: 12px; width: 100%; max-width: 400px; justify-content: flex-end;">
+          <button id="cancelCropButton" class="secondary-button" type="button" style="width: auto;">Cancel</button>
+          <button id="saveCropButton" class="primary-button" type="button" style="width: auto;">Save Picture</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

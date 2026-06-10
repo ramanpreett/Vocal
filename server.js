@@ -170,6 +170,34 @@ async function handleApi(request, response, route) {
     }
   }
 
+  if (route.startsWith("/api/users")) {
+    if (request.method === "GET" && route === "/api/users") {
+      const { users } = await getCollections();
+      const allUsers = await users.find({}).toArray();
+      sendJson(response, 200, allUsers.map(publicUser));
+      return;
+    }
+
+    if (request.method === "PUT" && route === "/api/users/me/avatar") {
+      const currentUser = await getCurrentUser(request);
+      if (!currentUser) {
+        sendJson(response, 401, { error: "Not signed in" });
+        return;
+      }
+      const body = await readJson(request);
+      const avatar = String(body.avatar || "");
+      if (!avatar.startsWith("data:image/")) {
+        sendJson(response, 400, { error: "Invalid image data." });
+        return;
+      }
+
+      const { users } = await getCollections();
+      await users.updateOne({ id: currentUser.id }, { $set: { avatar } });
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+  }
+
   if (route.startsWith("/api/auth/")) {
     await handleAuth(request, response, route);
     return;
@@ -215,13 +243,25 @@ async function handleApi(request, response, route) {
     const body = await readJson(request);
     const title = String(body.title || "").trim();
     const subject = normalizeSubject(body.subject);
-    const fileName = String(body.fileName || "").trim();
-    const fileType = String(body.fileType || "application/octet-stream");
-    const dataUrl = String(body.dataUrl || "");
     const description = String(body.description || "").trim();
+    let files = [];
+    if (Array.isArray(body.files) && body.files.length > 0) {
+      files = body.files.map(f => ({
+        fileName: String(f.fileName || "").trim(),
+        fileType: String(f.fileType || "application/octet-stream"),
+        dataUrl: String(f.dataUrl || ""),
+      }));
+    } else {
+      const fileName = String(body.fileName || "").trim();
+      const fileType = String(body.fileType || "application/octet-stream");
+      const dataUrl = String(body.dataUrl || "");
+      if (fileName && dataUrl) {
+        files.push({ fileName, fileType, dataUrl });
+      }
+    }
 
-    if (!title || !subject || !fileName || !fileType || !dataUrl) {
-      sendJson(response, 400, { error: "Missing resource details." });
+    if (!title || !subject || files.length === 0) {
+      sendJson(response, 400, { error: "Missing resource details or files." });
       return;
     }
 
@@ -232,9 +272,10 @@ async function handleApi(request, response, route) {
       teacher: currentUser.username,
       teacherLower: currentUser.username.toLowerCase(),
       description,
-      fileName,
-      fileType,
-      dataUrl,
+      fileName: files[0].fileName,
+      fileType: files[0].fileType,
+      dataUrl: files[0].dataUrl,
+      files,
       createdAt: new Date().toISOString(),
     };
 
@@ -388,7 +429,7 @@ async function readJson(request) {
 
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 20_000) {
+    if (size > 10_000_000) {
       throw new Error("Request body too large");
     }
     chunks.push(chunk);
@@ -457,6 +498,7 @@ function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
+    avatar: user.avatar || null,
   };
 }
 

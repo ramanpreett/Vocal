@@ -12,6 +12,7 @@ const starterSubjects = [
 let state = { subjects: starterSubjects, resources: [], messages: [] };
 let activeSubject = "All Subjects";
 let activeConversation = null;
+let userMap = {};
 
 const subjectList = document.querySelector("#subjectList");
 const uploadSubject = document.querySelector("#uploadSubject");
@@ -55,6 +56,7 @@ const logoutButton = document.querySelector("#logoutButton");
 const sidebarToggle = document.querySelector("#sidebarToggle");
 const profileUploadButton = document.querySelector("#profileUploadButton");
 const profileAvatar = document.querySelector("#profileAvatar");
+const avatarUpload = document.querySelector("#avatarUpload");
 const profileName = document.querySelector("#profileName");
 const profilePostCount = document.querySelector("#profilePostCount");
 const profileSubjectCount = document.querySelector("#profileSubjectCount");
@@ -71,14 +73,20 @@ const modalTitle = document.querySelector("#modalTitle");
 const modalDescription = document.querySelector("#modalDescription");
 const modalActions = document.querySelector("#modalActions");
 const modalMessageButton = document.querySelector("#modalMessageButton");
+const cropModal = document.querySelector("#cropModal");
+const cropImage = document.querySelector("#cropImage");
+const cancelCropButton = document.querySelector("#cancelCropButton");
+const saveCropButton = document.querySelector("#saveCropButton");
 
 let activeView = "dashboard";
 let authMode = "login";
 let currentUser = null;
+let cropper = null;
 
 document.body.classList.toggle("sidebar-collapsed", localStorage.getItem("vocal-sidebar-collapsed") === "true");
 updateSidebarToggleLabel();
 loadState();
+fetchUsers();
 render();
 checkSession();
 
@@ -147,7 +155,66 @@ subjectForm.addEventListener("submit", async (event) => {
 });
 
 contentFile.addEventListener("change", () => {
-  fileName.textContent = contentFile.files[0]?.name || "Choose teaching content";
+  const files = contentFile.files;
+  if (files.length === 0) {
+    fileName.textContent = "Choose teaching content";
+  } else if (files.length === 1) {
+    fileName.textContent = files[0].name;
+  } else {
+    fileName.textContent = `${files.length} files selected`;
+  }
+});
+
+avatarUpload.addEventListener("change", async () => {
+  const file = avatarUpload.files[0];
+  if (!file) return;
+  const dataUrl = await readFileAsDataUrl(file);
+  
+  cropImage.src = dataUrl;
+  cropModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  
+  if (cropper) cropper.destroy();
+  cropper = new Cropper(cropImage, {
+    aspectRatio: 1,
+    viewMode: 1,
+    autoCropArea: 1,
+  });
+});
+
+cancelCropButton.addEventListener("click", () => {
+  cropModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  if (cropper) {
+    cropper.destroy();
+    cropper = null;
+  }
+  avatarUpload.value = "";
+});
+
+saveCropButton.addEventListener("click", async () => {
+  if (!cropper) return;
+  
+  const canvas = cropper.getCroppedCanvas({ width: 400, height: 400 });
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+  
+  const response = await fetch("/api/users/me/avatar", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ avatar: dataUrl }),
+  });
+  
+  if (response.ok) {
+    if (currentUser) {
+      if (!userMap[currentUser.username.toLowerCase()]) {
+        userMap[currentUser.username.toLowerCase()] = { username: currentUser.username };
+      }
+      userMap[currentUser.username.toLowerCase()].avatar = dataUrl;
+    }
+    render();
+  }
+  
+  cancelCropButton.click();
 });
 
 dashboardTab.addEventListener("click", () => {
@@ -198,16 +265,23 @@ profileUploadButton.addEventListener("click", () => {
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const file = contentFile.files[0];
-  if (!file) return;
+  const files = Array.from(contentFile.files);
+  if (files.length === 0) return;
+
+  const filesArray = [];
+  for (const file of files) {
+    filesArray.push({
+      fileName: file.name,
+      fileType: file.type || detectFileType(file.name),
+      dataUrl: await readFileAsDataUrl(file),
+    });
+  }
 
   const resource = {
     subject: uploadSubject.value,
     title: contentTitle.value.trim(),
     description: contentDescription.value.trim(),
-    fileName: file.name,
-    fileType: file.type || detectFileType(file.name),
-    dataUrl: await readFileAsDataUrl(file),
+    files: filesArray,
   };
 
   const response = await fetch("/api/resources", {
@@ -334,6 +408,19 @@ async function loadState() {
   }
 }
 
+async function fetchUsers() {
+  try {
+    const response = await fetch("/api/users");
+    if (response.ok) {
+      const users = await response.json();
+      users.forEach(u => userMap[u.username.toLowerCase()] = u);
+      render();
+    }
+  } catch (error) {
+    console.error("Failed to load users", error);
+  }
+}
+
 async function checkSession() {
   try {
     const response = await fetch("/api/auth/me");
@@ -411,7 +498,7 @@ function renderAuth() {
   if (!isLoggedIn) return;
 
   accountName.textContent = currentUser.username;
-  accountAvatar.textContent = getInitials(currentUser.username) || "T";
+  accountAvatar.innerHTML = renderAvatar(currentUser.username) || "T";
 }
 
 function renderView() {
@@ -503,7 +590,7 @@ function renderProfile() {
   const pdfCount = ownResources.filter((resource) => resource.fileType.includes("pdf")).length;
 
   profileName.textContent = currentUser.username;
-  profileAvatar.textContent = getInitials(currentUser.username) || "T";
+  profileAvatar.innerHTML = renderAvatar(currentUser.username) || "T";
   profilePostCount.textContent = ownResources.length;
   profileSubjectCount.textContent = subjectNames.size;
   profilePdfCount.textContent = pdfCount;
@@ -529,7 +616,6 @@ function renderProfileTile(resource) {
           <span>${escapeHtml(resource.subject)} &middot; ${created}</span>
         </div>
         <div class="profile-overlay-actions">
-          <a class="link-button" href="${resource.dataUrl}" download="${escapeHtml(resource.fileName)}">Download</a>
           <button class="delete-button" type="button" data-delete-id="${resource.id}">Delete</button>
         </div>
       </div>
@@ -544,13 +630,12 @@ function openPostModal(resource) {
     : "";
 
   modalPreview.innerHTML = `<div class="preview">${renderPreview(resource)}</div>`;
-  modalAvatar.textContent = getInitials(resource.teacher || "Teacher");
+  modalAvatar.innerHTML = renderAvatar(resource.teacher || "Teacher");
   modalTeacher.textContent = resource.teacher || "Teacher";
   modalMeta.textContent = `${resource.subject} - ${created} - ${labelForType(resource.fileType)}`;
   modalTitle.textContent = resource.title;
   modalDescription.textContent = resource.description || "No description added.";
   modalActions.innerHTML = `
-    <a class="link-button" href="${resource.dataUrl}" download="${escapeHtml(resource.fileName)}">Download</a>
     ${deleteAction}
   `;
   
@@ -592,7 +677,7 @@ function renderResourceCard(resource) {
   return `
     <article class="resource-card" data-open-post-id="${resource.id}" tabindex="0">
       <header class="post-header">
-        <span class="avatar">${escapeHtml(getInitials(resource.teacher || "Teacher"))}</span>
+        <span class="avatar">${renderAvatar(resource.teacher || "Teacher")}</span>
         <div>
           <strong>${escapeHtml(resource.teacher || "Teacher")}</strong>
           <span>${escapeHtml(resource.subject)} &middot; ${created} &middot; ${escapeHtml(labelForType(resource.fileType))}</span>
@@ -609,7 +694,6 @@ function renderResourceCard(resource) {
         <h3>${escapeHtml(resource.title)}</h3>
         <p>${escapeHtml(resource.description || "No description added.")}</p>
         <div class="post-actions">
-          <a class="link-button" href="${resource.dataUrl}" download="${escapeHtml(resource.fileName)}">Download</a>
           ${deleteAction}
           ${messageAction}
         </div>
@@ -618,26 +702,90 @@ function renderResourceCard(resource) {
   `;
 }
 
-function renderPreview(resource) {
-  if (resource.fileType.startsWith("image/")) {
-    return `<img src="${resource.dataUrl}" alt="${escapeHtml(resource.title)}" />`;
+function renderSinglePreview(file) {
+  if (file.fileType.startsWith("image/")) {
+    return `<img src="${file.dataUrl}" alt="${escapeHtml(file.fileName || 'Image')}" />`;
   }
-
-  if (resource.fileType.startsWith("video/")) {
-    return `<video src="${resource.dataUrl}" controls muted></video>`;
+  if (file.fileType.startsWith("video/")) {
+    return `<video src="${file.dataUrl}" controls muted></video>`;
   }
-
-  if (resource.fileType.includes("pdf")) {
+  if (file.fileType.includes("pdf")) {
     return `
       <div class="pdf-preview" aria-label="PDF preview">
-        <object data="${resource.dataUrl}#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH" type="application/pdf">
+        <object data="${file.dataUrl}#toolbar=0&navpanes=0&scrollbar=0&page=1&view=FitH" type="application/pdf">
           <span class="file-badge">PDF</span>
         </object>
       </div>
     `;
   }
-
   return `<span class="file-badge">FILE</span>`;
+}
+
+function renderPreview(resource) {
+  const files = resource.files || [{ fileName: resource.fileName, fileType: resource.fileType, dataUrl: resource.dataUrl }];
+  const downloadIcon = `<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+  if (files.length === 1) {
+    return `
+      <div class="single-preview">
+        ${renderSinglePreview(files[0])}
+        <a class="slide-download" href="${files[0].dataUrl}" download="${escapeHtml(files[0].fileName)}" title="Download" onclick="event.stopPropagation()">${downloadIcon}</a>
+      </div>
+    `;
+  }
+
+  const carouselId = `igc-${resource.id}`;
+  const slides = files.map((file, idx) => `
+    <div class="ig-slide">
+      ${renderSinglePreview(file)}
+      <a class="slide-download" href="${file.dataUrl}" download="${escapeHtml(file.fileName)}" title="Download slide ${idx + 1}" onclick="event.stopPropagation()">${downloadIcon}</a>
+    </div>
+  `).join("");
+
+  const dots = files.map((_, idx) => `
+    <span class="ig-dot${idx === 0 ? " active" : ""}"></span>
+  `).join("");
+
+  return `
+    <div class="ig-carousel" id="${carouselId}" data-index="0" data-count="${files.length}">
+      <div class="ig-track">
+        ${slides}
+      </div>
+      <button class="ig-btn ig-prev" type="button" style="display:none" onclick="event.stopPropagation(); navigateCarousel('${carouselId}', -1)">&#10094;</button>
+      <button class="ig-btn ig-next" type="button" onclick="event.stopPropagation(); navigateCarousel('${carouselId}', 1)">&#10095;</button>
+      <div class="ig-dots">${dots}</div>
+      <span class="ig-counter">1 / ${files.length}</span>
+    </div>
+  `;
+}
+
+function navigateCarousel(carouselId, direction) {
+  const carousel = document.getElementById(carouselId);
+  if (!carousel) return;
+
+  let idx = parseInt(carousel.dataset.index) || 0;
+  const count = parseInt(carousel.dataset.count) || 1;
+
+  idx = Math.max(0, Math.min(count - 1, idx + direction));
+  _applyCarouselIndex(carousel, idx, count);
+}
+
+function _applyCarouselIndex(carousel, idx, count) {
+  carousel.dataset.index = idx;
+
+  const track = carousel.querySelector(".ig-track");
+  if (track) track.style.transform = `translateX(-${idx * 100}%)`;
+
+  const counter = carousel.querySelector(".ig-counter");
+  if (counter) counter.textContent = `${idx + 1} / ${count}`;
+
+  const dots = carousel.querySelectorAll(".ig-dot");
+  dots.forEach((dot, i) => dot.classList.toggle("active", i === idx));
+
+  const prevBtn = carousel.querySelector(".ig-prev");
+  const nextBtn = carousel.querySelector(".ig-next");
+  if (prevBtn) prevBtn.style.display = idx === 0 ? "none" : "";
+  if (nextBtn) nextBtn.style.display = idx === count - 1 ? "none" : "";
 }
 
 function readFileAsDataUrl(file) {
@@ -691,6 +839,14 @@ function getInitials(name) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
+}
+
+function renderAvatar(username) {
+  const user = userMap[username.toLowerCase()];
+  if (user && user.avatar) {
+    return `<img src="${user.avatar}" alt="${escapeHtml(username)}" class="avatar-img" />`;
+  }
+  return escapeHtml(getInitials(username));
 }
 
 function escapeHtml(value) {
