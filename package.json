@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node --env-file=.env server.js"
+    "start": "npm --prefix server run start",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\""
   },
-  "dependencies": {
-    "mongodb": "^7.2.0"
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }
