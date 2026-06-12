@@ -7,7 +7,11 @@ export const createPost = async (req, res) => {
     let mediaUrl = req.body.mediaUrl;
     let thumbnailUrl = null;
 
-    if (req.files && req.files.file) {
+    let mediaUrls = [];
+
+    if (req.files && req.files.carouselFiles) {
+      mediaUrls = req.files.carouselFiles.map(file => file.path);
+    } else if (req.files && req.files.file) {
       mediaUrl = req.files.file[0].path; // Cloudinary URL
     }
 
@@ -19,6 +23,7 @@ export const createPost = async (req, res) => {
       uploadedBy: req.user._id,
       mediaType,
       mediaUrl,
+      mediaUrls,
       thumbnailUrl,
       caption,
       skill
@@ -31,7 +36,19 @@ export const createPost = async (req, res) => {
 
 export const getFeed = async (req, res) => {
   try {
-    const posts = await Post.find()
+    const { filter } = req.query;
+    let query = {};
+    
+    if (filter === 'my-skills') {
+      const user = await User.findById(req.user._id);
+      if (user && user.skills && user.skills.length > 0) {
+        query = { skill: { $in: user.skills } };
+      } else {
+        query = { skill: { $in: [] } }; // return empty if no skills selected
+      }
+    }
+
+    const posts = await Post.find(query)
       .populate('uploadedBy', 'fullName username profilePhoto')
       .populate('comments.user', 'fullName username profilePhoto')
       .sort('-createdAt');

@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 
 const postSchema = new mongoose.Schema({
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  mediaType: { type: String, enum: ['image', 'video', 'pdf'], required: true },
-  mediaUrl: { type: String, required: true },
+  mediaType: { type: String, enum: ['image', 'video', 'pdf', 'carousel'], required: true },
+  mediaUrl: { type: String }, // Optional for carousels
+  mediaUrls: [{ type: String }], // Used for carousel posts
   thumbnailUrl: { type: String, default: null },
   caption: { type: String, default: '' },
   skill: { type: String, required: true },

@@ -55,3 +55,30 @@ export const updateProfilePhoto = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { bio, location, institution, experience, skills } = req.body;
+    
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (bio !== undefined) user.bio = bio;
+    if (location !== undefined) user.location = location;
+    if (institution !== undefined) user.institution = institution;
+    if (experience !== undefined) user.experience = experience;
+    
+    if (skills !== undefined) {
+      const skillsArray = typeof skills === 'string' 
+        ? skills.split(',').map(s => s.trim()).filter(s => s !== '')
+        : skills;
+      user.skills = skillsArray;
+    }
+
+    await user.save();
+    
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

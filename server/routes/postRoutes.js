@@ -9,7 +9,7 @@ const router = express.Router();
 const upload = multer({ storage });
 
 router.get('/stats', protect, getStats);
-router.post('/', protect, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), createPost);
+router.post('/', protect, upload.fields([{ name: 'file', maxCount: 1 }, { name: 'carouselFiles', maxCount: 10 }, { name: 'thumbnail', maxCount: 1 }]), createPost);
 router.get('/feed', protect, getFeed);
 router.put('/:id/like', protect, toggleLike);
 router.post('/:id/comment', protect, addComment);

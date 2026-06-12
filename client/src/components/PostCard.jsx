@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
-import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const PostCard = ({ post, isProfile = false }) => {
@@ -16,6 +16,7 @@ const PostCard = ({ post, isProfile = false }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [usersToShareWith, setUsersToShareWith] = useState([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
   
   const isLiked = likes.includes(user?._id);
 
@@ -103,6 +104,18 @@ const PostCard = ({ post, isProfile = false }) => {
     }
   };
 
+  const nextSlide = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (post.mediaUrls) setCurrentSlide(prev => (prev === post.mediaUrls.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevSlide = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (post.mediaUrls) setCurrentSlide(prev => (prev === 0 ? post.mediaUrls.length - 1 : prev - 1));
+  };
+
   return (
     <div className="glass rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-white">
       {/* Post Header */}
@@ -125,8 +138,46 @@ const PostCard = ({ post, isProfile = false }) => {
       </div>
       
       {/* Post Media */}
-      {(post.mediaType === 'image' || post.thumbnailUrl) && (
-        <div className="relative group overflow-hidden bg-gray-50 border-y border-gray-100 cursor-pointer aspect-square">
+      {post.mediaType === 'carousel' && post.mediaUrls && post.mediaUrls.length > 0 && (
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 h-[400px]">
+          <a href={post.mediaUrls[currentSlide]} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
+            <img src={post.mediaUrls[currentSlide]} alt={`Slide ${currentSlide + 1}`} className="w-full h-full object-contain object-center transition-transform duration-300" />
+          </a>
+          
+          {post.mediaUrls.length > 1 && (
+            <>
+              {/* Navigation Arrows */}
+              <button 
+                onClick={prevSlide}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm text-gray-800 flex items-center justify-center shadow hover:bg-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 z-10"
+              >
+                <FiChevronLeft className="text-xl" />
+              </button>
+              <button 
+                onClick={nextSlide}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm text-gray-800 flex items-center justify-center shadow hover:bg-white hover:scale-110 transition-all opacity-0 group-hover:opacity-100 z-10"
+              >
+                <FiChevronRight className="text-xl" />
+              </button>
+              
+              {/* Dot Indicators */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
+                {post.mediaUrls.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                      idx === currentSlide ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {post.mediaType !== 'carousel' && (post.mediaType === 'image' || post.thumbnailUrl) && (
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[400px]">
           <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
             <img src={post.thumbnailUrl || post.mediaUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
             {/* If it's a video/pdf with a thumbnail, add an overlay indicator */}
@@ -139,7 +190,7 @@ const PostCard = ({ post, isProfile = false }) => {
         </div>
       )}
       {!post.thumbnailUrl && post.mediaType === 'pdf' && (
-        <div className="w-full aspect-square bg-gradient-to-br from-red-50 to-orange-50 border-y border-red-100 flex flex-col items-center justify-center p-6 group">
+        <div className="w-full h-[300px] bg-gradient-to-br from-red-50 to-orange-50 border-y border-red-100 flex flex-col items-center justify-center p-6 group">
           <div className="w-20 h-20 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
             <FiFileText className="text-4xl text-red-500" />
           </div>

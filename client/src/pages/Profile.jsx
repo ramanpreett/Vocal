@@ -4,23 +4,38 @@ import { FiImage, FiVideo, FiFileText, FiGrid, FiSettings, FiMessageSquare, FiX,
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../utils/cropImage';
 import { AuthContext } from '../context/AuthContext';
 
 const Profile = () => {
   const { username } = useParams();
-  const { user: currentUser, setUser } = useContext(AuthContext);
+  const { user: currentUser, login } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('All');
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFormData, setEditFormData] = useState({ bio: '', location: '', institution: '', experience: '', skills: [] });
+  const [availableSkills, setAvailableSkills] = useState([]);
   const fileInputRef = useRef(null);
+
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await api.get(`/api/users/profile/${username || 'me'}`);
-        setProfileData(res.data);
+        const [profileRes, skillsRes] = await Promise.all([
+          api.get(`/api/users/profile/${username || 'me'}`),
+          api.get('/api/skills')
+        ]);
+        setProfileData(profileRes.data);
+        setAvailableSkills(skillsRes.data);
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
@@ -36,14 +51,26 @@ const Profile = () => {
   const { user, posts } = profileData;
   const isOwnProfile = currentUser?._id === user._id;
 
-  const handleProfilePhotoUpload = async (e) => {
+  const handleProfilePhotoSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const url = URL.createObjectURL(file);
+    setImageToCrop(url);
+    setCropModalOpen(true);
+    e.target.value = null; // reset input
+  };
 
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropSave = async () => {
     try {
       setIsUploadingPhoto(true);
+      const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      
       const formData = new FormData();
-      formData.append('photo', file);
+      formData.append('photo', croppedBlob, 'profile.jpg');
 
       const res = await api.put('/api/users/profile-photo', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -51,7 +78,10 @@ const Profile = () => {
 
       // Update local state and global context
       setProfileData({ ...profileData, user: res.data });
-      setUser(res.data);
+      login(res.data, localStorage.getItem('token'));
+      toast.success('Profile photo updated successfully');
+      setCropModalOpen(false);
+      setImageToCrop(null);
     } catch (error) {
       console.error('Error uploading photo:', error);
       toast.error('Failed to upload profile photo');
@@ -60,11 +90,51 @@ const Profile = () => {
     }
   };
 
+  const openEditModal = () => {
+    setEditFormData({
+      bio: user.bio || '',
+      location: user.location || '',
+      institution: user.institution || '',
+      experience: user.experience || '',
+      skills: user.skills || []
+    });
+    setIsEditingProfile(true);
+  };
+
+  const handleSkillToggle = (skillName) => {
+    setEditFormData(prev => {
+      const skills = prev.skills.includes(skillName)
+        ? prev.skills.filter(s => s !== skillName)
+        : [...prev.skills, skillName];
+      return { ...prev, skills };
+    });
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.put('/api/users/profile', editFormData);
+      
+      // Update AuthContext so the rest of the app reflects the new profile
+      login(res.data, localStorage.getItem('token'));
+      
+      setIsEditingProfile(false);
+      toast.success('Profile updated successfully');
+      window.location.reload(); // Reload to refresh everything smoothly
+    } catch (err) {
+      toast.error('Failed to update profile');
+      console.error(err);
+    }
+  };
+
   const tabs = ['All', 'Images', 'Videos', 'PDFs'];
 
   const filteredPosts = activeTab === 'All' 
     ? posts 
-    : posts.filter(post => post.mediaType + 's' === activeTab.toLowerCase());
+    : posts.filter(post => {
+        if (activeTab === 'Images') return post.mediaType === 'image' || post.mediaType === 'carousel';
+        return post.mediaType + 's' === activeTab.toLowerCase();
+      });
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -85,7 +155,7 @@ const Profile = () => {
                 ref={fileInputRef} 
                 className="hidden" 
                 accept="image/*" 
-                onChange={handleProfilePhotoUpload} 
+                onChange={handleProfilePhotoSelect} 
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {isUploadingPhoto ? <FiLoader className="text-white text-3xl animate-spin" /> : <FiCamera className="text-white text-3xl" />}
@@ -101,12 +171,15 @@ const Profile = () => {
               <p className="text-lg text-gray-500">@{user.username}</p>
             </div>
             <div className="flex gap-3 mt-4 md:mt-0 justify-center">
-              <button className="flex items-center gap-2 px-6 py-2 bg-[#8B5CF6] text-gray-900 font-semibold rounded-full hover:bg-[#7C3AED] transition">
-                <FiMessageSquare /> Message
-              </button>
-              <button className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition">
-                <FiSettings className="text-xl" />
-              </button>
+              {!isOwnProfile ? (
+                <button className="flex items-center gap-2 px-6 py-2 bg-[#8B5CF6] text-gray-900 font-semibold rounded-full hover:bg-[#7C3AED] transition">
+                  <FiMessageSquare /> Message
+                </button>
+              ) : (
+                <button onClick={openEditModal} className="flex items-center gap-2 px-6 py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-full hover:bg-gray-50 transition">
+                  <FiSettings className="text-xl" /> Edit Profile
+                </button>
+              )}
             </div>
           </div>
           
@@ -116,11 +189,21 @@ const Profile = () => {
             <div className="text-center md:text-left"><span className="font-bold text-xl">{user.following?.length || 0}</span> following</div>
           </div>
           
-          <p className="text-gray-700 mb-2">{user.bio || 'Vocational Educator'}</p>
-          <div className="text-sm text-gray-500 mb-4 flex flex-wrap gap-4 justify-center md:justify-start">
-            <span>📍 {user.location || 'Unknown Location'}</span>
-            <span>🏫 {user.institution || 'VocTech Institute'}</span>
-          </div>
+          {user.bio && <p className="text-gray-700 mb-2">{user.bio}</p>}
+          {(user.location || user.institution || user.experience) && (
+            <div className="text-sm text-gray-500 mb-4 flex flex-wrap gap-4 justify-center md:justify-start">
+              {user.location && <span>📍 {user.location}</span>}
+              {user.institution && <span>🏫 {user.institution}</span>}
+              {user.experience && <span>⭐ {user.experience}</span>}
+            </div>
+          )}
+          {user.skills && user.skills.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+              {user.skills.map((skill, i) => (
+                <span key={i} className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">{skill}</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -148,8 +231,8 @@ const Profile = () => {
       <div className="grid grid-cols-3 gap-1 md:gap-4 pb-20">
         {filteredPosts.map(post => (
           <div key={post._id} onClick={() => setSelectedPost(post)} className="aspect-square bg-white border border-gray-100 relative group cursor-pointer overflow-hidden rounded-md md:rounded-xl">
-            {(post.mediaType === 'image' || post.thumbnailUrl) && (
-              <img src={post.thumbnailUrl || post.mediaUrl} alt="Gallery item" className="w-full h-full object-contain group-hover:scale-110 transition duration-500" />
+            {(post.mediaType === 'image' || post.thumbnailUrl || post.mediaType === 'carousel') && (
+              <img src={post.thumbnailUrl || post.mediaUrl || (post.mediaUrls && post.mediaUrls[0])} alt="Gallery item" className="w-full h-full object-contain group-hover:scale-110 transition duration-500" />
             )}
             {!post.thumbnailUrl && post.mediaType === 'pdf' && (
               <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 group-hover:bg-gray-200 transition">
@@ -160,6 +243,18 @@ const Profile = () => {
             {!post.thumbnailUrl && post.mediaType === 'video' && (
               <div className="w-full h-full bg-black flex items-center justify-center">
                 <FiVideo className="text-4xl text-white opacity-80 group-hover:scale-110 transition duration-500" />
+              </div>
+            )}
+            {/* Overlay icon for thumbnails representing a video or pdf */}
+            {post.thumbnailUrl && (
+              <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white">
+                {post.mediaType === 'video' ? <FiVideo className="text-sm" /> : <FiFileText className="text-sm" />}
+              </div>
+            )}
+            {/* Overlay icon for carousels */}
+            {post.mediaType === 'carousel' && (
+              <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white">
+                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="text-sm" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             )}
             {/* Overlay icon for thumbnails representing a video or pdf */}
@@ -183,6 +278,117 @@ const Profile = () => {
             </button>
             <div className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
               <PostCard post={selectedPost} isProfile={true} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {isEditingProfile && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setIsEditingProfile(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto relative custom-scrollbar" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setIsEditingProfile(false)} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800">
+              <FiX className="text-2xl" />
+            </button>
+            <h2 className="text-2xl font-bold mb-6">Edit Profile</h2>
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Bio</label>
+                <textarea 
+                  value={editFormData.bio} 
+                  onChange={e => setEditFormData({...editFormData, bio: e.target.value})} 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6] resize-none h-24"
+                  placeholder="Tell us about yourself..."
+                ></textarea>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Location</label>
+                  <input type="text" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]" placeholder="City, Country" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Institution</label>
+                  <input type="text" value={editFormData.institution} onChange={e => setEditFormData({...editFormData, institution: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]" placeholder="Where do you teach?" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Experience</label>
+                <input type="text" value={editFormData.experience} onChange={e => setEditFormData({...editFormData, experience: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]" placeholder="e.g. 5 Years in Carpentry" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Skills</label>
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-xl bg-gray-50 custom-scrollbar">
+                  {availableSkills.map((skill) => (
+                    <button
+                      key={skill._id}
+                      type="button"
+                      onClick={() => handleSkillToggle(skill.name)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                        editFormData.skills.includes(skill.name) 
+                          ? 'bg-[#8B5CF6] text-white shadow-md transform scale-[1.02]' 
+                          : 'bg-white text-gray-600 border border-gray-200 hover:border-[#8B5CF6] hover:text-[#8B5CF6]'
+                      }`}
+                    >
+                      {skill.name}
+                    </button>
+                  ))}
+                  {availableSkills.length === 0 && (
+                    <span className="text-sm text-gray-500 w-full text-center py-2">No skills available. Add them on the dashboard first.</span>
+                  )}
+                </div>
+              </div>
+              <button type="submit" className="w-full py-3 mt-4 bg-[#8B5CF6] text-gray-900 font-bold rounded-xl hover:bg-[#7C3AED] transition">
+                Save Changes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Modal */}
+      {cropModalOpen && imageToCrop && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+            <h2 className="text-2xl font-bold mb-4 text-center">Adjust Picture</h2>
+            <div className="relative w-full h-80 bg-gray-100 rounded-2xl overflow-hidden mb-6">
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            <div className="flex flex-col gap-2 mb-6 px-4">
+              <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(e.target.value)}
+                className="w-full accent-[#8B5CF6]"
+              />
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => { setCropModalOpen(false); setImageToCrop(null); }} 
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCropSave} 
+                disabled={isUploadingPhoto}
+                className="flex-1 py-3 bg-[#8B5CF6] hover:bg-[#7C3AED] text-gray-900 font-bold rounded-xl transition flex items-center justify-center gap-2"
+              >
+                {isUploadingPhoto ? <FiLoader className="animate-spin text-xl" /> : 'Save Picture'}
+              </button>
             </div>
           </div>
         </div>

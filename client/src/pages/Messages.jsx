@@ -109,7 +109,7 @@ const Messages = () => {
               className={`p-4 flex items-center gap-3 cursor-pointer transition ${activeChatUser?._id === edu._id ? 'border-l-4 border-[#8B5CF6] bg-gray-50' : 'hover:bg-gray-50'}`}
             >
               <div className="relative">
-                <img src={edu.profilePhoto || `https://ui-avatars.com/api/?name=${edu.fullName}`} alt="avatar" className="w-12 h-12 rounded-full" />
+                <img src={edu.profilePhoto || `https://ui-avatars.com/api/?name=${edu.fullName}`} alt="avatar" className="w-12 h-12 rounded-full object-cover" />
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
               </div>
               <div className="flex-1 min-w-0">
@@ -132,7 +132,7 @@ const Messages = () => {
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white/50">
               <div className="flex items-center gap-3">
-                <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full" />
+                <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
                 <div>
                   <h3 className="font-bold">{activeChatUser.fullName}</h3>
                   <p className="text-xs text-green-500">Online</p>

@@ -11,13 +11,14 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ topContributors: [], trendingSkills: [] });
   const [loading, setLoading] = useState(true);
   const [newSkill, setNewSkill] = useState('');
+  const [feedFilter, setFeedFilter] = useState('all');
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
       const [postsRes, statsRes] = await Promise.all([
-        api.get('/api/posts/feed'),
+        api.get(`/api/posts/feed?filter=${feedFilter}`),
         api.get('/api/posts/stats')
       ]);
       setPosts(postsRes.data);
@@ -31,7 +32,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [feedFilter]);
 
   const handleCreateSkill = async (e) => {
     e.preventDefault();
@@ -97,6 +98,24 @@ const Dashboard = () => {
           </div>
         </div>
         
+        <div className="flex justify-between items-center mb-6 px-2 mt-8">
+          <h2 className="text-2xl font-bold">Feed</h2>
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button 
+              onClick={() => setFeedFilter('all')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${feedFilter === 'all' ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              All Posts
+            </button>
+            <button 
+              onClick={() => setFeedFilter('my-skills')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${feedFilter === 'my-skills' ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              My Skills
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-10">
           {posts.length === 0 ? (
             <div className="glass rounded-3xl p-12 text-center flex flex-col items-center justify-center">
