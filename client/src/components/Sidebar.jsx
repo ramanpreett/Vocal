@@ -1,128 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import { Avatar } from './Avatar';
+import React, { useContext } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import { FiHome, FiPlusSquare, FiUser, FiVideo, FiMessageSquare, FiLogOut } from 'react-icons/fi';
 
-export function Sidebar({ 
-  currentUser, 
-  userMap, 
-  logout, 
-  subjects, 
-  resources, 
-  activeSubject, 
-  setActiveSubject, 
-  setActiveView,
-  addSubject 
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [showSubjectForm, setShowSubjectForm] = useState(false);
-  const [newSubject, setNewSubject] = useState('');
+const Sidebar = () => {
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const isCollapsed = localStorage.getItem('vocal-sidebar-collapsed') === 'true';
-    setCollapsed(isCollapsed);
-    if (isCollapsed) document.body.classList.add('sidebar-collapsed');
-    else document.body.classList.remove('sidebar-collapsed');
-  }, []);
-
-  const toggleSidebar = () => {
-    const val = !collapsed;
-    setCollapsed(val);
-    localStorage.setItem('vocal-sidebar-collapsed', val.toString());
-    if (val) document.body.classList.add('sidebar-collapsed');
-    else document.body.classList.remove('sidebar-collapsed');
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
-  const handleAddSubject = async (e) => {
-    e.preventDefault();
-    const name = newSubject.trim().replace(/\s+/g, " ");
-    if (!name || subjects.some(s => s.toLowerCase() === name.toLowerCase())) return;
-    
-    const success = await addSubject(name);
-    if (success) {
-      setActiveSubject(name);
-      setNewSubject('');
-      setShowSubjectForm(false);
-      setActiveView('dashboard');
-    }
-  };
-
-  const subjectList = ['All Subjects', ...subjects];
+  const navItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: <FiHome className="text-2xl" /> },
+    { name: 'Upload', path: '/upload', icon: <FiPlusSquare className="text-2xl" /> },
+    { name: 'Profile', path: `/profile/${user?.username || 'me'}`, icon: <FiUser className="text-2xl" /> },
+    { name: 'Meetings', path: '/meetings', icon: <FiVideo className="text-2xl" /> },
+    { name: 'Messages', path: '/messages', icon: <FiMessageSquare className="text-2xl" /> },
+  ];
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span className="brand-mark">V</span>
-        <div>
-          <strong>Vocal</strong>
-          <small>Vocational teaching hub</small>
-        </div>
+    <div className="h-screen w-64 glass border-r border-gray-200 flex flex-col fixed left-0 top-0">
+      <div className="p-6">
+        <h1 className="text-3xl font-bold text-[#8B5CF6] mb-8 tracking-wider">VOCAL</h1>
+        
+        <nav className="space-y-4">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center space-x-4 p-3 rounded-xl transition duration-200 ${
+                  isActive 
+                    ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] font-semibold' 
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }
+            >
+              {item.icon}
+              <span className="text-lg">{item.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+      
+      <div className="mt-auto p-6">
         <button 
-          className="sidebar-toggle" 
-          type="button" 
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={toggleSidebar}
+          onClick={handleLogout}
+          className="flex items-center space-x-4 p-3 w-full text-left rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-500 transition duration-200"
         >
-          <span></span>
+          <FiLogOut className="text-2xl" />
+          <span className="text-lg">Logout</span>
         </button>
       </div>
-
-      {currentUser && (
-        <div className="account-panel">
-          <span className="avatar">
-            <Avatar username={currentUser.username} userMap={userMap} />
-          </span>
-          <div>
-            <strong>{currentUser.username}</strong>
-            <button type="button" onClick={logout}>Log out</button>
-          </div>
-        </div>
-      )}
-
-      <nav className="subject-panel" aria-label="Subjects">
-        <div className="panel-heading">
-          <span>Subjects</span>
-          <button className="icon-button" type="button" title="Add subject" onClick={() => setShowSubjectForm(!showSubjectForm)}>+</button>
-        </div>
-        
-        {showSubjectForm && (
-          <form className="subject-form" onSubmit={handleAddSubject}>
-            <label>Subject name</label>
-            <div className="inline-form">
-              <input 
-                type="text" 
-                placeholder="e.g. Electrical Wiring" 
-                maxLength="40" 
-                value={newSubject}
-                onChange={e => setNewSubject(e.target.value)}
-                autoFocus
-              />
-              <button type="submit">Add</button>
-            </div>
-          </form>
-        )}
-
-        <div className="subject-list">
-          {subjectList.map(subject => {
-            const count = subject === "All Subjects"
-              ? resources.length
-              : resources.filter((r) => r.subject === subject).length;
-
-            return (
-              <button 
-                key={subject}
-                className={`subject-button ${subject === activeSubject ? "active" : ""}`} 
-                type="button"
-                onClick={() => {
-                  setActiveSubject(subject);
-                  setActiveView('dashboard');
-                }}
-              >
-                <span>{subject}</span>
-                <strong>{count}</strong>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-    </aside>
+    </div>
   );
-}
+};
+
+export default Sidebar;
