@@ -1,8 +1,9 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { FiSend, FiMoreVertical, FiPhone, FiVideo } from 'react-icons/fi';
+import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX } from 'react-icons/fi';
 import io from 'socket.io-client';
 import api from '../api/axios';
+import PostCard from '../components/PostCard';
 
 const Messages = () => {
   const { user } = useContext(AuthContext);
@@ -10,6 +11,7 @@ const Messages = () => {
   const [activeChatUser, setActiveChatUser] = useState(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
+  const [selectedPost, setSelectedPost] = useState(null);
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
 
@@ -149,13 +151,31 @@ const Messages = () => {
                 const isMe = msg.sender === user?._id;
                 return (
                   <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-6 py-3 shadow-sm ${
+                    <div className={`max-w-[70%] break-words rounded-2xl px-6 py-3 shadow-sm ${
                       isMe 
-                        ? 'bg-[#8B5CF6] text-gray-900 rounded-br-sm' 
+                        ? 'bg-[#8B5CF6] text-white rounded-br-sm' 
                         : 'bg-gray-100 text-gray-800 rounded-bl-sm'
                     }`}>
-                      <p>{msg.message}</p>
-                      <p className={`text-xs mt-1 ${isMe ? 'text-gray-700' : 'text-gray-500'}`}>
+                      {msg.sharedPost && (
+                        <div className={`mb-3 w-48 rounded-xl overflow-hidden border cursor-pointer hover:opacity-90 transition ${isMe ? 'border-white/20 bg-white/10' : 'border-gray-200 bg-white'}`} onClick={() => setSelectedPost(msg.sharedPost)}>
+                          <div className="p-3 border-b border-inherit flex items-center gap-2">
+                            <img src={msg.sharedPost.uploadedBy?.profilePhoto || `https://ui-avatars.com/api/?name=${msg.sharedPost.uploadedBy?.fullName || 'U'}`} className="w-6 h-6 rounded-full object-cover" alt="author" />
+                            <span className="font-bold text-sm truncate">{msg.sharedPost.uploadedBy?.username}</span>
+                          </div>
+                          <div className="block relative aspect-square bg-black/5 flex items-center justify-center">
+                            <img src={msg.sharedPost.thumbnailUrl || msg.sharedPost.mediaUrl} className="w-full h-full object-cover" alt="shared post" />
+                            {msg.sharedPost.mediaType === 'video' && <FiVideo className="absolute text-white text-3xl drop-shadow-md" />}
+                            {msg.sharedPost.mediaType === 'pdf' && <FiFileText className="absolute text-white text-3xl drop-shadow-md" />}
+                          </div>
+                          {msg.sharedPost.caption && (
+                            <div className="p-2 text-xs truncate">
+                              {msg.sharedPost.caption}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+                      <p className={`text-xs mt-1 ${isMe ? 'text-white/80' : 'text-gray-500'}`}>
                         {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </p>
                     </div>
@@ -185,6 +205,20 @@ const Messages = () => {
           </>
         )}
       </div>
+      
+      {/* Post Modal */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPost(null)}>
+          <div className="relative w-full max-w-lg mt-8 overflow-visible" onClick={e => e.stopPropagation()}>
+            <button className="absolute -top-12 right-0 md:-right-12 z-50 text-white hover:text-gray-300 transition p-2" onClick={() => setSelectedPost(null)}>
+              <FiX className="text-3xl md:text-4xl" />
+            </button>
+            <div className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
+              <PostCard post={selectedPost} isProfile={true} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -10,7 +10,12 @@ export const getConversation = async (req, res) => {
         { sender: currentUserId, receiver: userId },
         { sender: userId, receiver: currentUserId }
       ]
-    }).sort('createdAt');
+    })
+    .populate({
+      path: 'sharedPost',
+      populate: { path: 'uploadedBy', select: 'username fullName profilePhoto' }
+    })
+    .sort('createdAt');
 
     res.json(messages);
   } catch (error) {
@@ -21,16 +26,22 @@ export const getConversation = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { userId } = req.params; // receiver
-    const { message } = req.body;
+    const { message, sharedPost } = req.body;
     const currentUserId = req.user._id; // sender
 
     const newMessage = await Message.create({
       sender: currentUserId,
       receiver: userId,
-      message
+      message: message || '',
+      sharedPost: sharedPost || undefined
     });
 
-    res.status(201).json(newMessage);
+    const populatedMessage = await Message.findById(newMessage._id).populate({
+      path: 'sharedPost',
+      populate: { path: 'uploadedBy', select: 'username fullName profilePhoto' }
+    });
+
+    res.status(201).json(populatedMessage);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

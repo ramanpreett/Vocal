@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
-import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2 } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX } from 'react-icons/fi';
 
 const PostCard = ({ post, isProfile = false }) => {
   const { user } = useContext(AuthContext);
@@ -12,6 +12,9 @@ const PostCard = ({ post, isProfile = false }) => {
   const [commentText, setCommentText] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [usersToShareWith, setUsersToShareWith] = useState([]);
+  const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   
   const isLiked = likes.includes(user?._id);
 
@@ -53,6 +56,49 @@ const PostCard = ({ post, isProfile = false }) => {
     e.preventDefault();
     e.stopPropagation();
     setShowDeleteConfirm(true);
+  };
+
+  const handleExternalShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Post by ${post.uploadedBy?.username}`,
+          text: post.caption,
+          url: post.mediaUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(post.mediaUrl);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const openShareModal = async () => {
+    setShowShareModal(true);
+    setIsFetchingUsers(true);
+    try {
+      const res = await api.get('/api/users');
+      setUsersToShareWith(res.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsFetchingUsers(false);
+    }
+  };
+
+  const handleInternalShare = async (recipientId) => {
+    try {
+      await api.post(`/api/messages/${recipientId}`, { 
+        sharedPost: post._id
+      });
+      alert('Resource shared successfully!');
+      setShowShareModal(false);
+    } catch (error) {
+      console.error('Error sharing resource internally:', error);
+      alert('Failed to share resource');
+    }
   };
 
   return (
@@ -119,7 +165,10 @@ const PostCard = ({ post, isProfile = false }) => {
             <FiMessageCircle className="text-2xl group-hover:scale-110 transition-transform duration-300" />
             <span className="font-medium text-sm">{comments.length}</span>
           </button>
-          <button className="text-gray-600 hover:text-[#8B5CF6] group transition-colors">
+          <button 
+            onClick={openShareModal}
+            className="text-gray-600 hover:text-[#8B5CF6] group transition-colors"
+          >
             <FiShare2 className="text-2xl group-hover:scale-110 transition-transform duration-300" />
           </button>
         </div>
@@ -193,6 +242,51 @@ const PostCard = ({ post, isProfile = false }) => {
                 className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg hover:shadow-red-500/30 transition disabled:opacity-50 flex items-center justify-center"
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowShareModal(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-lg">Share Resource</h3>
+              <button onClick={() => setShowShareModal(false)} className="p-2 text-gray-400 hover:text-gray-800 rounded-full hover:bg-gray-100 transition">
+                <FiX className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="max-h-64 overflow-y-auto p-2">
+              {isFetchingUsers ? (
+                <div className="text-center p-4 text-gray-500">Loading contacts...</div>
+              ) : (
+                usersToShareWith.length > 0 ? (
+                  usersToShareWith.map(u => (
+                    <div key={u._id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition cursor-pointer" onClick={() => handleInternalShare(u._id)}>
+                      <div className="flex items-center space-x-3">
+                        <img src={u.profilePhoto || `https://ui-avatars.com/api/?name=${u.fullName || 'U'}&background=random`} className="w-10 h-10 rounded-full object-cover" alt="avatar" />
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{u.fullName}</p>
+                          <p className="text-xs text-gray-500">@{u.username}</p>
+                        </div>
+                      </div>
+                      <button className="text-[#8B5CF6] text-sm font-bold px-3 py-1 bg-[#8B5CF6]/10 rounded-full hover:bg-[#8B5CF6] hover:text-white transition">
+                        Send
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center p-4 text-gray-500">No contacts found.</div>
+                )
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50">
+              <button onClick={handleExternalShare} className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition">
+                <FiShare2 /> Share via OS
               </button>
             </div>
           </div>
