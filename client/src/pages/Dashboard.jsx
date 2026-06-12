@@ -144,7 +144,7 @@ const Dashboard = () => {
               <p className="text-sm text-gray-500">No contributors yet.</p>
             ) : (
               stats.topContributors.map((c, i) => (
-                <div key={c._id} className="flex items-center justify-between group">
+                <Link to={`/profile/${c.user.username}`} key={c._id} className="flex items-center justify-between group cursor-pointer">
                   <div className="flex items-center space-x-3">
                     <img src={c.user.profilePhoto || `https://ui-avatars.com/api/?name=${c.user.fullName || 'U'}`} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
                     <div>
@@ -155,7 +155,7 @@ const Dashboard = () => {
                   <div className="bg-violet-100 text-violet-700 text-xs font-bold px-3 py-1 rounded-full">
                     {c.count} {c.count === 1 ? 'post' : 'posts'}
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

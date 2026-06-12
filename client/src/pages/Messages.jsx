@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX } from 'react-icons/fi';
 import io from 'socket.io-client';
@@ -131,13 +132,13 @@ const Messages = () => {
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white/50">
-              <div className="flex items-center gap-3">
-                <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+              <Link to={`/profile/${activeChatUser.username}`} className="flex items-center gap-3 cursor-pointer group">
+                <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full object-cover group-hover:ring-2 ring-[#8B5CF6] transition-all" />
                 <div>
-                  <h3 className="font-bold">{activeChatUser.fullName}</h3>
+                  <h3 className="font-bold group-hover:text-[#8B5CF6] transition-colors">{activeChatUser.fullName}</h3>
                   <p className="text-xs text-green-500">Online</p>
                 </div>
-              </div>
+              </Link>
               <div className="flex gap-4 text-gray-500">
                 <button className="hover:text-[#8B5CF6] transition"><FiPhone className="text-xl" /></button>
                 <button className="hover:text-[#8B5CF6] transition"><FiVideo className="text-xl" /></button>

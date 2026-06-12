@@ -27,6 +27,10 @@ const Profile = () => {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -36,6 +40,10 @@ const Profile = () => {
         ]);
         setProfileData(profileRes.data);
         setAvailableSkills(skillsRes.data);
+        if (currentUser && profileRes.data.user) {
+          setIsFollowing(profileRes.data.user.followers.includes(currentUser._id));
+          setFollowersCount(profileRes.data.user.followers.length);
+        }
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
@@ -43,7 +51,7 @@ const Profile = () => {
       }
     };
     fetchProfile();
-  }, [username]);
+  }, [username, currentUser]);
 
   if (loading) return <div className="text-center pt-20">Loading profile...</div>;
   if (!profileData) return <div className="text-center pt-20">Profile not found</div>;
@@ -87,6 +95,22 @@ const Profile = () => {
       toast.error('Failed to upload profile photo');
     } finally {
       setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!currentUser) return toast.error('You must be logged in to follow');
+    try {
+      setIsFollowLoading(true);
+      const res = await api.put(`/api/users/${user._id}/follow`);
+      setIsFollowing(res.data.isFollowing);
+      setFollowersCount(res.data.followersCount);
+      toast.success(res.data.isFollowing ? 'Followed successfully' : 'Unfollowed successfully');
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast.error(error.response?.data?.message || 'Failed to toggle follow status');
+    } finally {
+      setIsFollowLoading(false);
     }
   };
 
@@ -172,9 +196,22 @@ const Profile = () => {
             </div>
             <div className="flex gap-3 mt-4 md:mt-0 justify-center">
               {!isOwnProfile ? (
-                <button className="flex items-center gap-2 px-6 py-2 bg-[#8B5CF6] text-gray-900 font-semibold rounded-full hover:bg-[#7C3AED] transition">
-                  <FiMessageSquare /> Message
-                </button>
+                <>
+                  <button 
+                    onClick={handleFollow} 
+                    disabled={isFollowLoading}
+                    className={`flex items-center gap-2 px-6 py-2 font-semibold rounded-full transition ${
+                      isFollowing 
+                        ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' 
+                        : 'bg-[#8B5CF6] text-white hover:bg-[#7C3AED]'
+                    }`}
+                  >
+                    {isFollowLoading ? <FiLoader className="animate-spin" /> : (isFollowing ? 'Unfollow' : 'Follow')}
+                  </button>
+                  <button className="flex items-center gap-2 px-6 py-2 bg-gray-100 text-gray-900 font-semibold rounded-full hover:bg-gray-200 transition">
+                    <FiMessageSquare /> Message
+                  </button>
+                </>
               ) : (
                 <button onClick={openEditModal} className="flex items-center gap-2 px-6 py-2 border border-[#8B5CF6] text-[#8B5CF6] font-semibold rounded-full hover:bg-gray-50 transition">
                   <FiSettings className="text-xl" /> Edit Profile
@@ -185,7 +222,7 @@ const Profile = () => {
           
           <div className="flex justify-center md:justify-start gap-8 mb-6 font-medium">
             <div className="text-center md:text-left"><span className="font-bold text-xl">{posts.length}</span> posts</div>
-            <div className="text-center md:text-left"><span className="font-bold text-xl">{user.followers?.length || 0}</span> followers</div>
+            <div className="text-center md:text-left"><span className="font-bold text-xl">{followersCount}</span> followers</div>
             <div className="text-center md:text-left"><span className="font-bold text-xl">{user.following?.length || 0}</span> following</div>
           </div>
           
