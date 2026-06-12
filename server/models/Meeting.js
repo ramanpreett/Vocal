@@ -5,9 +5,10 @@ const meetingSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   date: { type: Date, required: true },
   time: { type: String, required: true },
-  meetingLink: { type: String, required: true },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  meetingLink: { type: String, default: '' },
+  host: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  isPublic: { type: Boolean, default: true }
 }, { timestamps: true });
 
 export default mongoose.model('Meeting', meetingSchema);

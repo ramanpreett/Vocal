@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { FiImage, FiVideo, FiFileText, FiGrid, FiSettings, FiMessageSquare, FiX, FiCamera, FiLoader } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
 import { AuthContext } from '../context/AuthContext';
@@ -53,7 +54,7 @@ const Profile = () => {
       setUser(res.data);
     } catch (error) {
       console.error('Error uploading photo:', error);
-      alert('Failed to upload profile photo');
+      toast.error('Failed to upload profile photo');
     } finally {
       setIsUploadingPhoto(false);
     }

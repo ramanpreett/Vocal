@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
 import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 
 const PostCard = ({ post, isProfile = false }) => {
   const { user } = useContext(AuthContext);
@@ -43,9 +44,10 @@ const PostCard = ({ post, isProfile = false }) => {
     setIsDeleting(true);
     try {
       await api.delete(`/api/posts/${post._id}`);
+      toast.success('Post deleted successfully');
       window.location.reload();
     } catch (err) {
-      alert('Failed to delete post');
+      toast.error('Failed to delete post');
       console.error(err);
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -68,7 +70,7 @@ const PostCard = ({ post, isProfile = false }) => {
         });
       } else {
         await navigator.clipboard.writeText(post.mediaUrl);
-        alert('Link copied to clipboard!');
+        toast.success('Link copied to clipboard!');
       }
     } catch (error) {
       console.error('Error sharing:', error);
@@ -93,11 +95,11 @@ const PostCard = ({ post, isProfile = false }) => {
       await api.post(`/api/messages/${recipientId}`, { 
         sharedPost: post._id
       });
-      alert('Resource shared successfully!');
+      toast.success('Resource shared successfully!');
       setShowShareModal(false);
     } catch (error) {
       console.error('Error sharing resource internally:', error);
-      alert('Failed to share resource');
+      toast.error('Failed to share resource');
     }
   };
 

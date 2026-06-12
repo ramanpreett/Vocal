@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
 import { FiImage, FiFileText, FiVideo } from 'react-icons/fi';
@@ -39,9 +40,9 @@ const Dashboard = () => {
       await api.post('/api/skills', { name: newSkill.trim() });
       setNewSkill('');
       fetchData(); // Refresh to potentially show new skill in trending if it gets used, though it won't be trending until used.
-      alert('Skill created successfully!');
+      toast.success('Skill created successfully!');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to create skill');
+      toast.error(err.response?.data?.message || 'Failed to create skill');
     }
   };
 

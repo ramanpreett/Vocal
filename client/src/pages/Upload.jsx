@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiUploadCloud, FiImage, FiFileText, FiVideo } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 const Upload = () => {
@@ -69,7 +70,7 @@ const Upload = () => {
         }
       });
 
-      alert('Resource uploaded successfully!');
+      toast.success('Resource uploaded successfully!');
       setFile(null);
       setThumbnailFile(null);
       setCaption('');
@@ -77,7 +78,7 @@ const Upload = () => {
       setThumbnailPreview(null);
     } catch (error) {
       console.error('Error uploading:', error);
-      alert('Failed to upload resource.');
+      toast.error('Failed to upload resource.');
     }
   };
 

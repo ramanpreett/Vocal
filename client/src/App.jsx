@@ -11,9 +11,12 @@ import Profile from './pages/Profile';
 import Meetings from './pages/Meetings';
 import Messages from './pages/Messages';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { borderRadius: '16px', background: '#333', color: '#fff' } }} />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
