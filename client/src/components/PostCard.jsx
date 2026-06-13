@@ -16,6 +16,8 @@ const PostCard = ({ post, isProfile = false }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
   
   const isLiked = likes.includes(user?._id);
 
@@ -104,15 +106,41 @@ const PostCard = ({ post, isProfile = false }) => {
   };
 
   const nextSlide = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (post.mediaUrls) setCurrentSlide(prev => (prev === post.mediaUrls.length - 1 ? 0 : prev + 1));
   };
 
   const prevSlide = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (post.mediaUrls) setCurrentSlide(prev => (prev === 0 ? post.mediaUrls.length - 1 : prev - 1));
+  };
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => setTouchEnd(e.targetTouches[0].clientX);
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    if (isLeftSwipe) {
+      nextSlide();
+    }
+    if (isRightSwipe) {
+      prevSlide();
+    }
   };
 
   return (
@@ -138,7 +166,12 @@ const PostCard = ({ post, isProfile = false }) => {
       
       {/* Post Media */}
       {post.mediaType === 'carousel' && post.mediaUrls && post.mediaUrls.length > 0 && (
-        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 h-[300px] sm:h-[400px]">
+        <div 
+          className="relative group overflow-hidden bg-black/5 border-y border-gray-100 h-[300px] sm:h-[400px]"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <a href={post.mediaUrls[currentSlide]} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
             <img src={post.mediaUrls[currentSlide]} alt={`Slide ${currentSlide + 1}`} className="w-full h-full object-contain object-center transition-transform duration-300" />
           </a>
