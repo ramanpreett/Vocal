@@ -138,7 +138,7 @@ const PostCard = ({ post, isProfile = false }) => {
       
       {/* Post Media */}
       {post.mediaType === 'carousel' && post.mediaUrls && post.mediaUrls.length > 0 && (
-        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 h-[400px]">
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 h-[300px] sm:h-[400px]">
           <a href={post.mediaUrls[currentSlide]} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
             <img src={post.mediaUrls[currentSlide]} alt={`Slide ${currentSlide + 1}`} className="w-full h-full object-contain object-center transition-transform duration-300" />
           </a>
@@ -176,7 +176,7 @@ const PostCard = ({ post, isProfile = false }) => {
       )}
 
       {post.mediaType !== 'carousel' && (post.mediaType === 'image' || post.thumbnailUrl) && (
-        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[400px]">
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[300px] sm:h-[400px]">
           <a href={post.mediaType === 'pdf' ? `https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}` : post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
             <img src={post.thumbnailUrl || post.mediaUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
             {/* Overlay indicator */}
