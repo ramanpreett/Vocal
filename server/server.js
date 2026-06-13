@@ -39,12 +39,17 @@ app.get('/', (req, res) => {
   res.send('VOCAL API is running...');
 });
 
+const onlineUsers = new Set();
+
 // Socket.io for messaging
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
   socket.on('join_room', (userId) => {
     socket.join(userId);
+    socket.userId = userId;
+    onlineUsers.add(userId);
+    io.emit('online_users', Array.from(onlineUsers));
     console.log(`User ${userId} joined their personal room`);
   });
 
@@ -55,6 +60,10 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+    if (socket.userId) {
+      onlineUsers.delete(socket.userId);
+      io.emit('online_users', Array.from(onlineUsers));
+    }
   });
 });
 

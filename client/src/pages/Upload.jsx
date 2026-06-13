@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FiUploadCloud, FiImage, FiFileText, FiVideo } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiUploadCloud, FiImage, FiFileText, FiVideo, FiLoader } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 const Upload = () => {
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [caption, setCaption] = useState('');
@@ -15,6 +17,7 @@ const Upload = () => {
   const [uploadType, setUploadType] = useState('single'); // 'single' or 'carousel'
   const [carouselFiles, setCarouselFiles] = useState([]);
   const [carouselPreviews, setCarouselPreviews] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -68,7 +71,9 @@ const Upload = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isUploading) return;
     try {
+      setIsUploading(true);
       const formData = new FormData();
       formData.append('caption', caption);
       formData.append('skill', skill);
@@ -85,6 +90,8 @@ const Upload = () => {
         }
       } else {
         formData.append('mediaType', 'carousel');
+        const order = carouselFiles.map(f => f.name);
+        formData.append('carouselOrder', JSON.stringify(order));
         carouselFiles.forEach(f => formData.append('carouselFiles', f));
       }
 
@@ -102,9 +109,13 @@ const Upload = () => {
       setThumbnailPreview(null);
       setCarouselFiles([]);
       setCarouselPreviews([]);
+      
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error uploading:', error);
       toast.error('Failed to upload resource.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -250,12 +261,16 @@ const Upload = () => {
 
           <button 
             type="submit" 
-            disabled={(uploadType === 'single' && !file) || (uploadType === 'carousel' && carouselFiles.length === 0) || !skill}
-            className={`w-full py-3 rounded-xl font-bold text-base transition ${
+            disabled={isUploading || (uploadType === 'single' && !file) || (uploadType === 'carousel' && carouselFiles.length === 0) || !skill}
+            className={`w-full py-3 rounded-xl font-bold text-base transition flex items-center justify-center gap-2 ${
               ((uploadType === 'single' && file) || (uploadType === 'carousel' && carouselFiles.length > 0)) && skill ? 'bg-[#8B5CF6] hover:bg-[#7C3AED] text-gray-900 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Post Resource
+            {isUploading ? (
+              <><FiLoader className="animate-spin text-xl" /> Uploading...</>
+            ) : (
+              'Post Resource'
+            )}
           </button>
         </form>
       </div>

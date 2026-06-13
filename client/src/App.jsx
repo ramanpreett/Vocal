@@ -28,8 +28,8 @@ function App() {
             <Route path="/profile/:username" element={<Profile />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/messages" element={<Messages />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
+          <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

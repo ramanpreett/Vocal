@@ -13,6 +13,7 @@ const Messages = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
 
@@ -36,6 +37,10 @@ const Messages = () => {
     if (user?._id) {
       socketRef.current.emit('join_room', user._id);
     }
+
+    socketRef.current.on('online_users', (users) => {
+      setOnlineUsers(users);
+    });
 
     socketRef.current.on('receive_message', (data) => {
       if (activeChatUser && data.sender === activeChatUser._id) {
@@ -111,7 +116,7 @@ const Messages = () => {
             >
               <div className="relative">
                 <img src={edu.profilePhoto || `https://ui-avatars.com/api/?name=${edu.fullName}`} alt="avatar" className="w-12 h-12 rounded-full object-cover" />
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${onlineUsers.includes(edu._id) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold truncate">{edu.fullName}</h4>
@@ -136,7 +141,15 @@ const Messages = () => {
                 <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full object-cover group-hover:ring-2 ring-[#8B5CF6] transition-all" />
                 <div>
                   <h3 className="font-bold group-hover:text-[#8B5CF6] transition-colors">{activeChatUser.fullName}</h3>
-                  <p className="text-xs text-green-500">Online</p>
+                  {onlineUsers.includes(activeChatUser._id) ? (
+                    <p className="text-xs text-green-500 font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-gray-400"></span> Offline
+                    </p>
+                  )}
                 </div>
               </Link>
               <div className="flex gap-4 text-gray-500">

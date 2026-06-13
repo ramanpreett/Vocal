@@ -10,7 +10,16 @@ export const createPost = async (req, res) => {
     let mediaUrls = [];
 
     if (req.files && req.files.carouselFiles) {
-      mediaUrls = req.files.carouselFiles.map(file => file.path);
+      let files = [...req.files.carouselFiles];
+      if (req.body.carouselOrder) {
+        try {
+          const order = JSON.parse(req.body.carouselOrder);
+          files.sort((a, b) => order.indexOf(a.originalname) - order.indexOf(b.originalname));
+        } catch (e) {
+          console.error("Error parsing carouselOrder:", e);
+        }
+      }
+      mediaUrls = files.map(file => file.path);
     } else if (req.files && req.files.file) {
       mediaUrl = req.files.file[0].path; // Cloudinary URL
     }

@@ -14,7 +14,6 @@ const PostCard = ({ post, isProfile = false }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [usersToShareWith, setUsersToShareWith] = useState([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   
@@ -178,12 +177,12 @@ const PostCard = ({ post, isProfile = false }) => {
 
       {post.mediaType !== 'carousel' && (post.mediaType === 'image' || post.thumbnailUrl) && (
         <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[400px]">
-          <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
+          <a href={post.mediaType === 'pdf' ? `https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}` : post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
             <img src={post.thumbnailUrl || post.mediaUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
-            {/* If it's a video/pdf with a thumbnail, add an overlay indicator */}
+            {/* Overlay indicator */}
             {post.thumbnailUrl && (
-              <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 text-white text-xs font-bold tracking-wide shadow-lg border border-white/20">
-                {post.mediaType === 'video' ? '▶ VIDEO' : '📄 PDF DOCUMENT'}
+              <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 text-white text-xs font-bold tracking-wide shadow-lg border border-white/20 hover:bg-black/80 transition-colors flex items-center gap-2">
+                {post.mediaType === 'video' ? '▶ VIDEO' : <><FiFileText className="text-sm"/> View Document</>}
               </div>
             )}
           </a>
@@ -195,8 +194,8 @@ const PostCard = ({ post, isProfile = false }) => {
             <FiFileText className="text-4xl text-red-500" />
           </div>
           <p className="font-bold text-xl text-gray-800 mb-2">PDF Document</p>
-          <a href={post.mediaUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-red-500 font-semibold hover:text-red-600 bg-white px-6 py-3 rounded-full shadow-sm hover:shadow transition-all">
-            <FiDownload /> Click to view
+          <a href={`https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-red-500 font-semibold hover:text-red-600 bg-white px-6 py-3 rounded-full shadow-sm hover:shadow transition-all">
+            <FiFileText /> View Document
           </a>
         </div>
       )}
@@ -249,7 +248,7 @@ const PostCard = ({ post, isProfile = false }) => {
           <div className="max-h-48 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
             {comments.map((c, i) => (
               <div key={i} className="flex space-x-2">
-                <img src={c.user?.profilePhoto || `https://ui-avatars.com/api/?name=${c.user?.username || 'U'}`} className="w-6 h-6 rounded-full" alt="avatar" />
+                <img src={c.user?.profilePhoto || `https://ui-avatars.com/api/?name=${c.user?.fullName || c.user?.username || 'U'}&background=random`} className="w-8 h-8 rounded-full object-cover" alt="avatar" />
                 <p className="text-sm text-gray-800">
                   <span className="font-bold mr-2">{c.user?.username}</span>
                   {c.text}
@@ -259,7 +258,7 @@ const PostCard = ({ post, isProfile = false }) => {
           </div>
           
           <form onSubmit={handleComment} className="flex items-center gap-2 pt-2 border-t border-gray-100">
-            <img src={user?.profilePhoto || `https://ui-avatars.com/api/?name=${user?.username || 'U'}`} className="w-8 h-8 rounded-full" alt="my-avatar" />
+            <img src={user?.profilePhoto || `https://ui-avatars.com/api/?name=${user?.fullName || user?.username || 'U'}&background=random`} className="w-8 h-8 rounded-full object-cover" alt="my-avatar" />
             <input 
               type="text" 
               placeholder="Add a comment..." 
