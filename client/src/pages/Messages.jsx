@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX } from 'react-icons/fi';
+import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX, FiChevronLeft } from 'react-icons/fi';
 import io from 'socket.io-client';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
@@ -96,7 +96,7 @@ const Messages = () => {
   return (
     <div className="h-[calc(100vh-4rem)] flex gap-6">
       {/* Sidebar - Chat List */}
-      <div className="w-1/3 glass rounded-2xl flex flex-col overflow-hidden">
+      <div className={`w-full md:w-1/3 glass rounded-2xl flex-col overflow-hidden ${activeChatUser ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-xl font-bold">Messages</h2>
           <input 
@@ -128,7 +128,7 @@ const Messages = () => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 glass rounded-2xl flex flex-col overflow-hidden">
+      <div className={`flex-1 glass rounded-2xl flex-col overflow-hidden ${!activeChatUser ? 'hidden md:flex' : 'flex'}`}>
         {!activeChatUser ? (
           <div className="flex-1 flex items-center justify-center text-gray-500">
             Select an educator to start messaging
@@ -137,7 +137,14 @@ const Messages = () => {
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white/50">
-              <Link to={`/profile/${activeChatUser.username}`} className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center gap-2">
+                <button 
+                  className="md:hidden p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition"
+                  onClick={() => setActiveChatUser(null)}
+                >
+                  <FiChevronLeft className="text-2xl" />
+                </button>
+                <Link to={`/profile/${activeChatUser.username}`} className="flex items-center gap-3 cursor-pointer group">
                 <img src={activeChatUser.profilePhoto || `https://ui-avatars.com/api/?name=${activeChatUser.fullName}`} alt="avatar" className="w-10 h-10 rounded-full object-cover group-hover:ring-2 ring-[#8B5CF6] transition-all" />
                 <div>
                   <h3 className="font-bold group-hover:text-[#8B5CF6] transition-colors">{activeChatUser.fullName}</h3>
@@ -151,7 +158,8 @@ const Messages = () => {
                     </p>
                   )}
                 </div>
-              </Link>
+                </Link>
+              </div>
               <div className="flex gap-4 text-gray-500">
                 <button className="hover:text-[#8B5CF6] transition"><FiPhone className="text-xl" /></button>
                 <button className="hover:text-[#8B5CF6] transition"><FiVideo className="text-xl" /></button>
