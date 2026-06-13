@@ -32,7 +32,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       )}
       
       {/* Sidebar Content */}
-      <div className={`h-screen w-64 glass border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50 transition-transform duration-300 bg-white ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <div className={`h-screen w-64 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="p-6">
           <div className="mb-8 flex justify-between items-center w-full">
             <img src={logo} alt="VOCAL Logo" className="w-full max-w-[120px] h-auto object-contain mx-auto lg:mx-0" />
