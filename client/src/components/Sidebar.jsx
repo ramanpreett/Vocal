@@ -5,7 +5,7 @@ import { FiHome, FiPlusSquare, FiUser, FiVideo, FiMessageSquare, FiLogOut, FiX }
 import logo from '../assets/logo.png';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, unreadCounts } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -51,7 +51,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 to={item.path}
                 onClick={() => setIsOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center space-x-4 p-3 rounded-xl transition duration-200 ${
+                  `flex items-center space-x-4 p-3 rounded-xl transition duration-200 relative ${
                     isActive 
                       ? 'bg-[#8B5CF6]/20 text-[#8B5CF6] font-semibold' 
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -60,6 +60,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               >
                 {item.icon}
                 <span className="text-lg">{item.name}</span>
+                {item.name === 'Messages' && unreadCounts?.totalUnread > 0 && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
+                    {unreadCounts.totalUnread > 99 ? '99+' : unreadCounts.totalUnread}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>

@@ -7,7 +7,7 @@ import api from '../api/axios';
 import PostCard from '../components/PostCard';
 
 const Messages = () => {
-  const { user } = useContext(AuthContext);
+  const { user, socket, unreadCounts, setUnreadCounts } = useContext(AuthContext);
   const location = useLocation();
   const [educators, setEducators] = useState([]);
   const [activeChatUser, setActiveChatUser] = useState(null);
@@ -15,7 +15,6 @@ const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [selectedPost, setSelectedPost] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const socketRef = useRef();
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -41,25 +40,37 @@ const Messages = () => {
   }, [educators, location.state]);
 
   useEffect(() => {
-    // Initialize socket connection
-    socketRef.current = io('http://localhost:5000');
-    
-    if (user?._id) {
-      socketRef.current.emit('join_room', user._id);
+    if (socket) {
+      const handleOnlineUsers = (users) => {
+        setOnlineUsers(users);
+      };
+
+      const handleReceiveMessage = (data) => {
+        if (activeChatUser && data.sender === activeChatUser._id) {
+          setMessages(prev => [...prev, data]);
+          
+          // Clear the global unread count that AuthContext just added since we are actively viewing it
+          setUnreadCounts(prev => {
+            const newSenders = { ...prev.senders };
+            const count = newSenders[activeChatUser._id] || 0;
+            if (count > 0) {
+              delete newSenders[activeChatUser._id];
+              return { totalUnread: Math.max(0, prev.totalUnread - count), senders: newSenders };
+            }
+            return prev;
+          });
+        }
+      };
+
+      socket.on('online_users', handleOnlineUsers);
+      socket.on('receive_message', handleReceiveMessage);
+
+      return () => {
+        socket.off('online_users', handleOnlineUsers);
+        socket.off('receive_message', handleReceiveMessage);
+      };
     }
-
-    socketRef.current.on('online_users', (users) => {
-      setOnlineUsers(users);
-    });
-
-    socketRef.current.on('receive_message', (data) => {
-      if (activeChatUser && data.sender === activeChatUser._id) {
-        setMessages(prev => [...prev, data]);
-      }
-    });
-
-    return () => socketRef.current.disconnect();
-  }, [user, activeChatUser]);
+  }, [socket, activeChatUser, setUnreadCounts]);
 
   useEffect(() => {
     if (activeChatUser) {
@@ -67,6 +78,18 @@ const Messages = () => {
         try {
           const res = await api.get(`/api/messages/${activeChatUser._id}`);
           setMessages(res.data);
+          
+          if (unreadCounts?.senders[activeChatUser._id]) {
+            setUnreadCounts(prev => {
+              const newSenders = { ...prev.senders };
+              const count = newSenders[activeChatUser._id] || 0;
+              delete newSenders[activeChatUser._id];
+              return {
+                totalUnread: Math.max(0, prev.totalUnread - count),
+                senders: newSenders
+              };
+            });
+          }
         } catch (error) {
           console.error('Error fetching messages:', error);
         }
@@ -88,13 +111,15 @@ const Messages = () => {
       const newMsg = res.data;
 
       // Send via socket
-      socketRef.current.emit('send_message', {
-        sender: user._id,
-        receiverId: activeChatUser._id,
-        message: newMsg.message,
-        createdAt: newMsg.createdAt,
-        _id: newMsg._id
-      });
+      if (socket) {
+        socket.emit('send_message', {
+          sender: user._id,
+          receiverId: activeChatUser._id,
+          message: newMsg.message,
+          createdAt: newMsg.createdAt,
+          _id: newMsg._id
+        });
+      }
 
       setMessages([...messages, newMsg]);
       setMessage('');
@@ -118,22 +143,30 @@ const Messages = () => {
         
         <div className="flex-1 overflow-y-auto">
           {educators.length === 0 && <div className="p-4 text-gray-500 text-center">No other educators found.</div>}
-          {educators.map(edu => (
-            <div 
-              key={edu._id} 
-              onClick={() => setActiveChatUser(edu)}
-              className={`p-4 flex items-center gap-3 cursor-pointer transition ${activeChatUser?._id === edu._id ? 'border-l-4 border-[#8B5CF6] bg-gray-50' : 'hover:bg-gray-50'}`}
-            >
-              <div className="relative">
-                <img src={edu.profilePhoto || `https://ui-avatars.com/api/?name=${edu.fullName}`} alt="avatar" className="w-12 h-12 rounded-full object-cover" />
-                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${onlineUsers.includes(edu._id) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+          {educators.map(edu => {
+            const isOnline = onlineUsers.includes(edu._id);
+            return (
+              <div 
+                key={edu._id} 
+                className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                  activeChatUser?._id === edu._id ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/30' : 'hover:bg-gray-50 border border-transparent'
+                }`}
+                onClick={() => setActiveChatUser(edu)}
+              >
+                <div className="relative">
+                  <img src={edu.profilePhoto || `https://ui-avatars.com/api/?name=${edu.fullName}`} alt="avatar" className="w-12 h-12 rounded-full object-cover" />
+                  {isOnline && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className={`truncate ${unreadCounts?.senders[edu._id] ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{edu.fullName}</h4>
+                  <p className={`text-sm truncate ${unreadCounts?.senders[edu._id] ? 'font-semibold text-[#8B5CF6]' : 'text-gray-500'}`}>@{edu.username}</p>
+                </div>
+                {unreadCounts?.senders[edu._id] > 0 && (
+                  <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0 shadow-sm"></div>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold truncate">{edu.fullName}</h4>
-                <p className="text-sm text-gray-500 truncate">@{edu.username}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
