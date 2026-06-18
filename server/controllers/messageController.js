@@ -13,7 +13,10 @@ export const getConversation = async (req, res) => {
     })
     .populate({
       path: 'sharedPost',
-      populate: { path: 'uploadedBy', select: 'username fullName profilePhoto' }
+      populate: [
+        { path: 'uploadedBy', select: 'username fullName profilePhoto' },
+        { path: 'comments.user', select: 'username fullName profilePhoto' }
+      ]
     })
     .sort('createdAt');
 
@@ -38,7 +41,10 @@ export const sendMessage = async (req, res) => {
 
     const populatedMessage = await Message.findById(newMessage._id).populate({
       path: 'sharedPost',
-      populate: { path: 'uploadedBy', select: 'username fullName profilePhoto' }
+      populate: [
+        { path: 'uploadedBy', select: 'username fullName profilePhoto' },
+        { path: 'comments.user', select: 'username fullName profilePhoto' }
+      ]
     });
 
     res.status(201).json(populatedMessage);

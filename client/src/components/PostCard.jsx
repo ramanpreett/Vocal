@@ -1,8 +1,8 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
-import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiTool } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiTool, FiVolume2, FiVolumeX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const PostCard = ({ post, isProfile = false }) => {
@@ -20,6 +20,49 @@ const PostCard = ({ post, isProfile = false }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const videoRef = useRef(null);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      setVideoProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+    }
+  };
+
+  const handleSeek = (e) => {
+    e.stopPropagation();
+    if (videoRef.current && videoRef.current.duration) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      videoRef.current.currentTime = (percent / 100) * videoRef.current.duration;
+      setVideoProgress(percent);
+    }
+  };
+
+  useEffect(() => {
+    if (post.mediaType !== 'video' || !videoRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          videoRef.current.play().catch(e => console.log('Autoplay prevented:', e));
+        } else {
+          videoRef.current.pause();
+        }
+      },
+      { threshold: 0.5 } // Play when at least 50% visible
+    );
+
+    observer.observe(videoRef.current);
+
+    return () => {
+      if (videoRef.current) {
+        observer.unobserve(videoRef.current);
+      }
+    };
+  }, [post.mediaType]);
   
   const isLiked = likes.includes(user?._id);
 
@@ -106,6 +149,25 @@ const PostCard = ({ post, isProfile = false }) => {
       console.error('Error sharing resource internally:', error);
       toast.error('Failed to share resource');
     }
+  };
+
+  const handleDownload = () => {
+    let urlToDownload = post.mediaType === 'carousel' && post.mediaUrls ? post.mediaUrls[currentSlide] : post.mediaUrl;
+    if (!urlToDownload) return;
+    
+    // Add Cloudinary attachment flag if it's a Cloudinary URL to force download
+    if (urlToDownload.includes('cloudinary.com') && urlToDownload.includes('/upload/')) {
+      urlToDownload = urlToDownload.replace('/upload/', '/upload/fl_attachment/');
+    }
+    
+    const link = document.createElement('a');
+    link.href = urlToDownload;
+    link.download = `Vocal_Resource_${post._id}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Download started!');
   };
 
   const nextSlide = (e) => {
@@ -211,17 +273,55 @@ const PostCard = ({ post, isProfile = false }) => {
         </div>
       )}
 
-      {post.mediaType !== 'carousel' && (post.mediaType === 'image' || post.thumbnailUrl) && (
+      {post.mediaType === 'image' && (
         <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[300px] sm:h-[400px]">
-          <a href={post.mediaType === 'pdf' ? `https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}` : post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
-            <img src={post.thumbnailUrl || post.mediaUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
-            {/* Overlay indicator */}
-            {post.thumbnailUrl && (
-              <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 text-white text-xs font-bold tracking-wide shadow-lg border border-white/20 hover:bg-black/80 transition-colors flex items-center gap-2">
-                {post.mediaType === 'video' ? '▶ VIDEO' : <><FiFileText className="text-sm"/> View Document</>}
-              </div>
-            )}
+          <a href={post.mediaUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
+            <img src={post.mediaUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
           </a>
+        </div>
+      )}
+
+      {post.mediaType === 'pdf' && post.thumbnailUrl && (
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[300px] sm:h-[400px]">
+          <a href={`https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}`} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
+            <img src={post.thumbnailUrl} alt="Post media" className="w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-[1.02]" />
+            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 text-white text-xs font-bold tracking-wide shadow-lg border border-white/20 hover:bg-black/80 transition-colors flex items-center gap-2">
+              <FiFileText className="text-sm"/> View Document
+            </div>
+          </a>
+        </div>
+      )}
+
+      {post.mediaType === 'video' && (
+        <div className="relative group overflow-hidden bg-black/5 border-y border-gray-100 cursor-pointer h-[300px] sm:h-[400px] flex items-center justify-center">
+          <video
+            ref={videoRef}
+            src={post.mediaUrl}
+            className="w-full h-full object-contain"
+            loop
+            muted={isMuted}
+            playsInline
+            onTimeUpdate={handleTimeUpdate}
+            onClick={(e) => {
+              e.preventDefault();
+              setIsMuted(!isMuted);
+            }}
+          />
+          {/* Custom Scrubber */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-500/40 cursor-pointer group-hover:h-3 transition-all z-20"
+            onClick={handleSeek}
+          >
+            <div 
+              className="h-full bg-[#8B5CF6] transition-all relative"
+              style={{ width: `${videoProgress}%` }}
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full scale-0 group-hover:scale-100 transition-transform origin-center translate-x-1/2 shadow-md" />
+            </div>
+          </div>
+          <div className="absolute bottom-6 right-4 bg-black/60 backdrop-blur-md rounded-full p-2.5 text-white shadow-lg border border-white/20 pointer-events-none transition-opacity duration-300 opacity-0 group-hover:opacity-100 z-10">
+            {isMuted ? <FiVolumeX className="text-lg" /> : <FiVolume2 className="text-lg" />}
+          </div>
         </div>
       )}
       {!post.thumbnailUrl && post.mediaType === 'pdf' && (
@@ -288,6 +388,15 @@ const PostCard = ({ post, isProfile = false }) => {
           >
             <FiShare2 className="text-2xl group-hover:scale-110 transition-transform duration-300" />
           </button>
+          {post.mediaType !== 'tool' && (
+            <button 
+              onClick={handleDownload}
+              className="text-gray-600 hover:text-[#8B5CF6] group transition-colors"
+              title="Download Resource"
+            >
+              <FiDownload className="text-2xl group-hover:scale-110 transition-transform duration-300" />
+            </button>
+          )}
         </div>
         <button className="text-gray-600 hover:text-gray-900 group transition-colors">
           <FiBookmark className="text-2xl group-hover:scale-110 transition-transform duration-300" />

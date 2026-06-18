@@ -4,6 +4,17 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
+const ALLOWED_EMAILS = [
+  'ramanpreet@gmail.com',
+  'dia@gmail.com',
+  'aman@gmail.com',
+  'nazish@gmail.com',
+  'garima@gmail.com',
+  'zainab@gmail.com',
+  'annanya@gmail.com'
+];
+
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'dev_secret_key', {
     expiresIn: '30d',
@@ -16,6 +27,10 @@ export const sendOTP = async (req, res) => {
 
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
+    }
+
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({ message: 'Access restricted to authorized users' });
     }
 
     const userExists = await User.findOne({ email });
@@ -71,6 +86,10 @@ export const register = async (req, res) => {
       currentRole, organization, skills
     } = req.body;
 
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({ message: 'Registration is restricted to authorized users' });
+    }
+
     /* OTP Disabled for now
     if (!otp) {
       return res.status(400).json({ message: 'Verification code is required' });
@@ -115,6 +134,7 @@ export const register = async (req, res) => {
       fullName: user.fullName,
       username: user.username,
       email: user.email,
+      profilePhoto: user.profilePhoto,
       token: generateToken(user._id)
     });
   } catch (error) {
@@ -126,6 +146,10 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({ message: 'Login is restricted to authorized users' });
+    }
+
     const user = await User.findOne({ email });
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
@@ -133,6 +157,7 @@ export const login = async (req, res) => {
         fullName: user.fullName,
         username: user.username,
         email: user.email,
+        profilePhoto: user.profilePhoto,
         token: generateToken(user._id)
       });
     } else {

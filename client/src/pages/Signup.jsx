@@ -18,7 +18,7 @@ const Signup = () => {
     fullName: '', username: '', email: '', password: '', confirmPassword: '',
     gender: '', state: '',
     highestQualification: '', institution: '', yearOfGraduation: '',
-    currentRole: '', organization: '', skills: '',
+    currentRole: '', organization: '', skills: [],
     otp: ''
   });
   const [error, setError] = useState('');
@@ -55,6 +55,15 @@ const Signup = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSkillToggle = (skillName) => {
+    setFormData(prev => {
+      const skills = prev.skills.includes(skillName)
+        ? prev.skills.filter(s => s !== skillName)
+        : [...prev.skills, skillName];
+      return { ...prev, skills };
+    });
+  };
+
   const handleNext = async () => {
     if (step === 1) {
       if (usernameStatus.includes('taken')) return setError('Please choose an available username');
@@ -67,7 +76,7 @@ const Signup = () => {
         return setError('Please fill all required fields');
       }
     } else if (step === 3) {
-      if (!formData.currentRole || !formData.organization || !formData.skills) {
+      if (!formData.currentRole || !formData.organization || formData.skills.length === 0) {
         return setError('Please fill all required fields');
       }
       /* OTP Disabled for now
@@ -102,7 +111,7 @@ const Signup = () => {
     try {
       const dataToSubmit = {
         ...formData,
-        skills: formData.skills ? [formData.skills] : []
+        skills: formData.skills
       };
       const res = await api.post('/api/auth/register', dataToSubmit);
       login(res.data, res.data.token);
@@ -205,18 +214,29 @@ const Signup = () => {
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
-                  <select name="state" value={formData.state} required onChange={handleChange} className="w-1/2 px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-[#8B5CF6] outline-none transition text-gray-700">
-                    <option value="" disabled>State / UT</option>
-                    {[
-                      "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", 
-                      "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", 
-                      "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", 
-                      "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", 
-                      "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
-                    ].map(state => (
-                      <option key={state} value={state}>{state}</option>
-                    ))}
-                  </select>
+                  <div className="w-1/2 relative">
+                    <input 
+                      list="states-list" 
+                      name="state" 
+                      value={formData.state} 
+                      required 
+                      onChange={handleChange} 
+                      placeholder="State / UT"
+                      autoComplete="off"
+                      className="w-full px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-[#8B5CF6] outline-none transition text-gray-700" 
+                    />
+                    <datalist id="states-list">
+                      {[
+                        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", 
+                        "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", 
+                        "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", 
+                        "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", 
+                        "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+                      ].map(state => (
+                        <option key={state} value={state} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
               </div>
             )}
@@ -246,12 +266,23 @@ const Signup = () => {
                   <input type="text" name="organization" value={formData.organization} placeholder="Organization / School" required onChange={handleChange} className="w-full px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-[#8B5CF6] outline-none transition" />
                 </div>
                 <div>
-                  <select name="skills" value={formData.skills} required onChange={handleChange} className="w-full px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-[#8B5CF6] outline-none transition text-gray-700">
-                    <option value="" disabled>Select your Vocational Subject</option>
-                    {VOCATIONAL_SKILLS.map(skill => (
-                      <option key={skill} value={skill}>{skill}</option>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">Vocational Subjects (Select all that apply)</label>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-gray-300 rounded-lg bg-gray-50 custom-scrollbar">
+                    {VOCATIONAL_SKILLS.map((skillName) => (
+                      <button
+                        key={skillName}
+                        type="button"
+                        onClick={() => handleSkillToggle(skillName)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                          formData.skills.includes(skillName) 
+                            ? 'bg-[#8B5CF6] text-white shadow-md transform scale-[1.02]' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:border-[#8B5CF6] hover:text-[#8B5CF6]'
+                        }`}
+                      >
+                        {skillName}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
               </div>
             )}
