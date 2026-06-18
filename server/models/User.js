@@ -10,7 +10,12 @@ const userSchema = new mongoose.Schema({
   skills: [{ type: String }],
   location: { type: String, default: '' },
   institution: { type: String, default: '' },
-  experience: { type: String, default: '' },
+  highestQualification: { type: String, default: '' },
+  yearOfGraduation: { type: String, default: '' },
+  currentRole: { type: String, default: '' },
+  organization: { type: String, default: '' },
+  gender: { type: String, default: '' },
+  state: { type: String, default: '' },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   googleId: { type: String }

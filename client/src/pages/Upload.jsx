@@ -3,36 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { FiUploadCloud, FiImage, FiFileText, FiVideo, FiLoader } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+import { VOCATIONAL_SKILLS } from '../utils/constants';
 
 const Upload = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [caption, setCaption] = useState('');
-  const [skill, setSkill] = useState('');
-  const [availableSkills, setAvailableSkills] = useState([]);
+  const [skill, setSkill] = useState(VOCATIONAL_SKILLS[0]);
   const [preview, setPreview] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(null);
 
-  const [uploadType, setUploadType] = useState('single'); // 'single' or 'carousel'
+  const [uploadType, setUploadType] = useState('single'); // 'single', 'carousel', or 'tool'
   const [carouselFiles, setCarouselFiles] = useState([]);
   const [carouselPreviews, setCarouselPreviews] = useState([]);
+  const [toolData, setToolData] = useState({ toolName: '', toolPurpose: '', toolLink: '' });
   const [isUploading, setIsUploading] = useState(false);
-
-  useEffect(() => {
-    const fetchSkills = async () => {
-      try {
-        const res = await api.get('/api/skills');
-        setAvailableSkills(res.data);
-        if (res.data.length > 0) {
-          setSkill(res.data[0].name);
-        }
-      } catch (error) {
-        console.error('Error fetching skills:', error);
-      }
-    };
-    fetchSkills();
-  }, []);
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
@@ -74,32 +60,43 @@ const Upload = () => {
     if (isUploading) return;
     try {
       setIsUploading(true);
-      const formData = new FormData();
-      formData.append('caption', caption);
-      formData.append('skill', skill);
-
-      if (uploadType === 'single') {
-        let mediaType = 'image';
-        if (file.type.startsWith('video/')) mediaType = 'video';
-        else if (file.type === 'application/pdf') mediaType = 'pdf';
-        
-        formData.append('mediaType', mediaType);
-        formData.append('file', file);
-        if (thumbnailFile && mediaType !== 'image') {
-          formData.append('thumbnail', thumbnailFile);
-        }
+      if (uploadType === 'tool') {
+        await api.post('/api/posts', {
+          mediaType: 'tool',
+          caption,
+          skill,
+          toolName: toolData.toolName,
+          toolPurpose: toolData.toolPurpose,
+          toolLink: toolData.toolLink
+        });
       } else {
-        formData.append('mediaType', 'carousel');
-        const order = carouselFiles.map(f => f.name);
-        formData.append('carouselOrder', JSON.stringify(order));
-        carouselFiles.forEach(f => formData.append('carouselFiles', f));
-      }
+        const formData = new FormData();
+        formData.append('caption', caption);
+        formData.append('skill', skill);
 
-      await api.post('/api/posts', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+        if (uploadType === 'single') {
+          let mediaType = 'image';
+          if (file.type.startsWith('video/')) mediaType = 'video';
+          else if (file.type === 'application/pdf') mediaType = 'pdf';
+          
+          formData.append('mediaType', mediaType);
+          formData.append('file', file);
+          if (thumbnailFile && mediaType !== 'image') {
+            formData.append('thumbnail', thumbnailFile);
+          }
+        } else if (uploadType === 'carousel') {
+          formData.append('mediaType', 'carousel');
+          const order = carouselFiles.map(f => f.name);
+          formData.append('carouselOrder', JSON.stringify(order));
+          carouselFiles.forEach(f => formData.append('carouselFiles', f));
         }
-      });
+
+        await api.post('/api/posts', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
 
       toast.success('Resource uploaded successfully!');
       setFile(null);
@@ -109,6 +106,7 @@ const Upload = () => {
       setThumbnailPreview(null);
       setCarouselFiles([]);
       setCarouselPreviews([]);
+      setToolData({ toolName: '', toolPurpose: '', toolLink: '' });
       
       navigate('/dashboard');
     } catch (error) {
@@ -126,22 +124,31 @@ const Upload = () => {
       <div className="glass p-6 rounded-2xl shadow-sm">
         <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
           <button 
+            type="button"
             onClick={() => setUploadType('single')}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition ${uploadType === 'single' ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Single File
           </button>
           <button 
+            type="button"
             onClick={() => setUploadType('carousel')}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition ${uploadType === 'carousel' ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Image Carousel
           </button>
+          <button 
+            type="button"
+            onClick={() => setUploadType('tool')}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition ${uploadType === 'tool' ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Educational Tool
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {uploadType === 'single' ? (
+          {uploadType === 'single' && (
             <>
               {/* Single File Drop Area */}
               <div className="border-2 border-dashed border-[#8B5CF6] rounded-xl p-6 text-center hover:bg-[#8B5CF6]/5 transition cursor-pointer relative">
@@ -196,7 +203,9 @@ const Upload = () => {
                 </div>
               )}
             </>
-          ) : (
+          )}
+
+          {uploadType === 'carousel' && (
             <>
               {/* Carousel Drop Area */}
               <div className="border-2 border-dashed border-[#8B5CF6] rounded-xl p-6 text-center hover:bg-[#8B5CF6]/5 transition cursor-pointer relative">
@@ -229,8 +238,45 @@ const Upload = () => {
                     ))}
                   </div>
                 )}
-              </div>
+               </div>
             </>
+          )}
+
+          {uploadType === 'tool' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Tool Name</label>
+                <input 
+                  type="text" 
+                  value={toolData.toolName} 
+                  onChange={(e) => setToolData({...toolData, toolName: e.target.value})} 
+                  placeholder="e.g., Kahoot, Canva" 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]"
+                  required={uploadType === 'tool'} 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Purpose / Example Use Case</label>
+                <textarea 
+                  value={toolData.toolPurpose} 
+                  onChange={(e) => setToolData({...toolData, toolPurpose: e.target.value})} 
+                  placeholder="Describe what the tool is used for..." 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6] h-20 resize-none"
+                  required={uploadType === 'tool'} 
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Tool Link</label>
+                <input 
+                  type="url" 
+                  value={toolData.toolLink} 
+                  onChange={(e) => setToolData({...toolData, toolLink: e.target.value})} 
+                  placeholder="https://..." 
+                  className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]"
+                  required={uploadType === 'tool'} 
+                />
+              </div>
+            </div>
           )}
 
           <div>
@@ -241,9 +287,8 @@ const Upload = () => {
               onChange={(e) => setSkill(e.target.value)}
               required
             >
-              {availableSkills.length === 0 && <option value="" disabled>No skills available</option>}
-              {availableSkills.map(s => (
-                <option key={s._id} value={s.name}>{s.name}</option>
+              {VOCATIONAL_SKILLS.map(skillName => (
+                <option key={skillName} value={skillName}>{skillName}</option>
               ))}
             </select>
           </div>
@@ -261,9 +306,9 @@ const Upload = () => {
 
           <button 
             type="submit" 
-            disabled={isUploading || (uploadType === 'single' && !file) || (uploadType === 'carousel' && carouselFiles.length === 0) || !skill}
+            disabled={isUploading || (uploadType === 'single' && !file) || (uploadType === 'carousel' && carouselFiles.length === 0) || (uploadType === 'tool' && (!toolData.toolName || !toolData.toolPurpose || !toolData.toolLink)) || !skill}
             className={`w-full py-3 rounded-xl font-bold text-base transition flex items-center justify-center gap-2 ${
-              ((uploadType === 'single' && file) || (uploadType === 'carousel' && carouselFiles.length > 0)) && skill ? 'bg-[#8B5CF6] hover:bg-[#7C3AED] text-gray-900 shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              ((uploadType === 'single' && file) || (uploadType === 'carousel' && carouselFiles.length > 0) || (uploadType === 'tool' && toolData.toolName && toolData.toolPurpose && toolData.toolLink)) && skill ? 'bg-[#8B5CF6] hover:bg-[#7C3AED] text-white shadow-lg' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
             {isUploading ? (

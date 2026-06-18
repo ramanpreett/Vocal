@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { FiImage, FiVideo, FiFileText, FiGrid, FiSettings, FiMessageSquare, FiX, FiCamera, FiLoader } from 'react-icons/fi';
+import { FiImage, FiVideo, FiFileText, FiGrid, FiSettings, FiMessageSquare, FiX, FiCamera, FiLoader, FiTool } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
 import { AuthContext } from '../context/AuthContext';
+import { VOCATIONAL_SKILLS } from '../utils/constants';
 
 const Profile = () => {
   const { username } = useParams();
@@ -17,8 +18,7 @@ const Profile = () => {
   const [selectedPost, setSelectedPost] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editFormData, setEditFormData] = useState({ bio: '', location: '', institution: '', experience: '', skills: [] });
-  const [availableSkills, setAvailableSkills] = useState([]);
+  const [editFormData, setEditFormData] = useState({ bio: '', location: '', institution: '', skills: [] });
   const fileInputRef = useRef(null);
 
   const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -34,12 +34,8 @@ const Profile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const [profileRes, skillsRes] = await Promise.all([
-          api.get(`/api/users/profile/${username || 'me'}`),
-          api.get('/api/skills')
-        ]);
+        const profileRes = await api.get(`/api/users/profile/${username || 'me'}`);
         setProfileData(profileRes.data);
-        setAvailableSkills(skillsRes.data);
         if (currentUser && profileRes.data.user) {
           setIsFollowing(profileRes.data.user.followers.includes(currentUser._id));
           setFollowersCount(profileRes.data.user.followers.length);
@@ -119,7 +115,6 @@ const Profile = () => {
       bio: user.bio || '',
       location: user.location || '',
       institution: user.institution || '',
-      experience: user.experience || '',
       skills: user.skills || []
     });
     setIsEditingProfile(true);
@@ -151,12 +146,13 @@ const Profile = () => {
     }
   };
 
-  const tabs = ['All', 'Images', 'Videos', 'PDFs'];
+  const tabs = ['All', 'Images', 'Videos', 'PDFs', 'Tools'];
 
   const filteredPosts = activeTab === 'All' 
     ? posts 
     : posts.filter(post => {
         if (activeTab === 'Images') return post.mediaType === 'image' || post.mediaType === 'carousel';
+        if (activeTab === 'Tools') return post.mediaType === 'tool';
         return post.mediaType + 's' === activeTab.toLowerCase();
       });
 
@@ -227,11 +223,10 @@ const Profile = () => {
           </div>
           
           {user.bio && <p className="text-gray-700 mb-2">{user.bio}</p>}
-          {(user.location || user.institution || user.experience) && (
+          {(user.location || user.institution) && (
             <div className="text-sm text-gray-500 mb-4 flex flex-wrap gap-4 justify-center md:justify-start">
               {user.location && <span>📍 {user.location}</span>}
               {user.institution && <span>🏫 {user.institution}</span>}
-              {user.experience && <span>⭐ {user.experience}</span>}
             </div>
           )}
           {user.skills && user.skills.length > 0 && (
@@ -260,6 +255,7 @@ const Profile = () => {
             {tab === 'Images' && <FiImage />}
             {tab === 'Videos' && <FiVideo />}
             {tab === 'PDFs' && <FiFileText />}
+            {tab === 'Tools' && <FiTool />}
             <span className="hidden sm:inline">{tab}</span>
           </button>
         ))}
@@ -282,6 +278,29 @@ const Profile = () => {
                 <FiVideo className="text-4xl text-white opacity-80 group-hover:scale-110 transition duration-500" />
               </div>
             )}
+            {post.mediaType === 'tool' && (
+              <div className="w-full h-full relative group overflow-hidden bg-gray-100 rounded-md md:rounded-xl">
+                {post.toolLink ? (
+                  <>
+                    <img 
+                      src={`https://image.thum.io/get/width/600/crop/800/${post.toolLink}`} 
+                      alt={post.toolName} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition duration-500 opacity-90 group-hover:opacity-100" 
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
+                      <span className="font-bold text-white text-sm line-clamp-1">{post.toolName}</span>
+                      <span className="text-xs text-white/80 truncate block">{post.toolLink.replace(/^https?:\/\//, '')}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#8B5CF6]/5 to-[#8B5CF6]/20 p-4 text-center group-hover:from-[#8B5CF6]/10 group-hover:to-[#8B5CF6]/30 transition duration-500">
+                    <FiTool className="text-4xl text-[#8B5CF6] mb-3 group-hover:scale-110 transition duration-500" />
+                    <span className="font-bold text-sm text-gray-900 mb-1 line-clamp-2">{post.toolName}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Overlay icon for thumbnails representing a video or pdf */}
             {post.thumbnailUrl && (
               <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white">
@@ -290,8 +309,14 @@ const Profile = () => {
             )}
             {/* Overlay icon for carousels */}
             {post.mediaType === 'carousel' && (
-              <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white">
+              <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white z-10">
                 <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="text-sm" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </div>
+            )}
+            {/* Overlay icon for tools */}
+            {post.mediaType === 'tool' && (
+              <div className="absolute top-2 right-2 bg-black/60 rounded p-1 text-white z-10">
+                <FiTool className="text-sm" />
               </div>
             )}
             {/* Overlay icon for thumbnails representing a video or pdf */}
@@ -349,29 +374,22 @@ const Profile = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Experience</label>
-                <input type="text" value={editFormData.experience} onChange={e => setEditFormData({...editFormData, experience: e.target.value})} className="w-full px-4 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#8B5CF6]" placeholder="e.g. 5 Years in Carpentry" />
-              </div>
-              <div>
                 <label className="block text-sm font-medium mb-2">Skills</label>
                 <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-3 border rounded-xl bg-gray-50 custom-scrollbar">
-                  {availableSkills.map((skill) => (
+                  {VOCATIONAL_SKILLS.map((skillName) => (
                     <button
-                      key={skill._id}
+                      key={skillName}
                       type="button"
-                      onClick={() => handleSkillToggle(skill.name)}
+                      onClick={() => handleSkillToggle(skillName)}
                       className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
-                        editFormData.skills.includes(skill.name) 
+                        editFormData.skills.includes(skillName) 
                           ? 'bg-[#8B5CF6] text-white shadow-md transform scale-[1.02]' 
                           : 'bg-white text-gray-600 border border-gray-200 hover:border-[#8B5CF6] hover:text-[#8B5CF6]'
                       }`}
                     >
-                      {skill.name}
+                      {skillName}
                     </button>
                   ))}
-                  {availableSkills.length === 0 && (
-                    <span className="text-sm text-gray-500 w-full text-center py-2">No skills available. Add them on the dashboard first.</span>
-                  )}
                 </div>
               </div>
               <button type="submit" className="w-full py-3 mt-4 bg-[#8B5CF6] text-gray-900 font-bold rounded-xl hover:bg-[#7C3AED] transition">

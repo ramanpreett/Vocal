@@ -1,12 +1,13 @@
 import React, { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
-import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiShare2, FiBookmark, FiMoreHorizontal, FiFileText, FiDownload, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiTool } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const PostCard = ({ post, isProfile = false }) => {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [likes, setLikes] = useState(post.likes || []);
   const [comments, setComments] = useState(post.comments || []);
   const [showComments, setShowComments] = useState(false);
@@ -14,6 +15,7 @@ const PostCard = ({ post, isProfile = false }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [usersToShareWith, setUsersToShareWith] = useState([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
@@ -99,6 +101,7 @@ const PostCard = ({ post, isProfile = false }) => {
       });
       toast.success('Resource shared successfully!');
       setShowShareModal(false);
+      navigate('/messages', { state: { activeUserId: recipientId } });
     } catch (error) {
       console.error('Error sharing resource internally:', error);
       toast.error('Failed to share resource');
@@ -230,6 +233,35 @@ const PostCard = ({ post, isProfile = false }) => {
           <a href={`https://docs.google.com/viewer?url=${encodeURIComponent(post.mediaUrl)}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-red-500 font-semibold hover:text-red-600 bg-white px-6 py-3 rounded-full shadow-sm hover:shadow transition-all">
             <FiFileText /> View Document
           </a>
+        </div>
+      )}
+
+      {post.mediaType === 'tool' && (
+        <div className="w-full bg-gradient-to-br from-violet-50 to-indigo-50 border-y border-violet-100 p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6 group">
+          <div className="flex-1 w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-xl flex items-center justify-center text-[#8B5CF6]">
+                <FiTool className="text-2xl" />
+              </div>
+              <h3 className="font-bold text-2xl text-gray-900">{post.toolName}</h3>
+            </div>
+            <p className="text-gray-700 leading-relaxed mb-6 bg-white/60 p-4 rounded-xl border border-white">
+              {post.toolPurpose}
+            </p>
+            <a href={post.toolLink.startsWith('http') ? post.toolLink : `https://${post.toolLink}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 text-white font-semibold bg-[#8B5CF6] hover:bg-[#7C3AED] px-6 py-3 rounded-xl shadow-sm hover:shadow transition-all">
+              <FiShare2 /> Visit Tool
+            </a>
+          </div>
+          {post.toolLink && (
+            <div className="w-full md:w-64 aspect-video bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm shrink-0">
+              <img 
+                src={`https://image.thum.io/get/width/500/crop/800/${post.toolLink.startsWith('http') ? post.toolLink : `https://${post.toolLink}`}`} 
+                alt="Website Preview" 
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
+          )}
         </div>
       )}
       

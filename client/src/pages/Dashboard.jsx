@@ -3,17 +3,21 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
-import { FiImage, FiFileText, FiVideo } from 'react-icons/fi';
+import { FiImage, FiFileText, FiVideo, FiLoader, FiTool, FiArrowUp } from 'react-icons/fi';
 import PostCard from '../components/PostCard';
+import { VOCATIONAL_SKILLS } from '../utils/constants';
 
 const Dashboard = () => {
   const [posts, setPosts] = useState([]);
   const [stats, setStats] = useState({ topContributors: [], trendingSkills: [] });
   const [loading, setLoading] = useState(true);
-  const [newSkill, setNewSkill] = useState('');
   const [feedFilter, setFeedFilter] = useState('all');
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const fetchData = async () => {
     try {
@@ -33,19 +37,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchData();
   }, [feedFilter]);
-
-  const handleCreateSkill = async (e) => {
-    e.preventDefault();
-    if (!newSkill.trim()) return;
-    try {
-      await api.post('/api/skills', { name: newSkill.trim() });
-      setNewSkill('');
-      fetchData(); // Refresh to potentially show new skill in trending if it gets used, though it won't be trending until used.
-      toast.success('Skill created successfully!');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create skill');
-    }
-  };
 
   if (loading) {
     return (
@@ -126,13 +117,27 @@ const Dashboard = () => {
               <p className="text-gray-500">Be the first to upload a resource and start collaborating!</p>
             </div>
           ) : (
-            posts.map(post => <PostCard key={post._id} post={post} />)
+            <>
+              {posts.map(post => <PostCard key={post._id} post={post} />)}
+              
+              {/* Go to Top Button */}
+              {posts.length > 2 && (
+                <div className="flex justify-center pt-8 pb-4">
+                  <button 
+                    onClick={scrollToTop}
+                    className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 hover:text-[#8B5CF6] font-semibold rounded-full shadow-sm hover:shadow-md border border-gray-100 transition-all hover:-translate-y-1"
+                  >
+                    <FiArrowUp className="text-xl" /> Go to Top
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Right Column - Widgets */}
-      <div className="hidden lg:block w-[350px] space-y-8 sticky top-6 self-start">
+      <div className="hidden lg:block w-[350px] space-y-8 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto custom-scrollbar pr-2 pb-4">
         {/* Top Contributors Widget */}
         <div className="glass bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
@@ -183,29 +188,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Create Skill Widget */}
-        <div className="glass bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-            <span className="bg-[#8B5CF6] w-2 h-6 rounded-full mr-3"></span>
-            Add New Skill
-          </h3>
-          <form onSubmit={handleCreateSkill} className="space-y-3">
-            <input 
-              type="text" 
-              placeholder="E.g., Machine Learning" 
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              className="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white focus:ring-2 focus:ring-[#8B5CF6] outline-none transition text-sm"
-            />
-            <button 
-              type="submit" 
-              disabled={!newSkill.trim()}
-              className="w-full py-2 bg-[#8B5CF6] hover:bg-[#7C3AED] text-gray-900 font-bold rounded-xl transition disabled:opacity-50 text-sm"
-            >
-              Create Skill
-            </button>
-          </form>
-        </div>
       </div>
     </div>
   );

@@ -1,13 +1,14 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX, FiChevronLeft } from 'react-icons/fi';
+import { FiSend, FiMoreVertical, FiPhone, FiVideo, FiFileText, FiX, FiChevronLeft, FiTool } from 'react-icons/fi';
 import io from 'socket.io-client';
 import api from '../api/axios';
 import PostCard from '../components/PostCard';
 
 const Messages = () => {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
   const [educators, setEducators] = useState([]);
   const [activeChatUser, setActiveChatUser] = useState(null);
   const [message, setMessage] = useState('');
@@ -29,6 +30,15 @@ const Messages = () => {
     };
     fetchEducators();
   }, []);
+
+  useEffect(() => {
+    if (educators.length > 0 && location.state?.activeUserId) {
+      const targetUser = educators.find(e => e._id === location.state.activeUserId);
+      if (targetUser) {
+        setActiveChatUser(targetUser);
+      }
+    }
+  }, [educators, location.state]);
 
   useEffect(() => {
     // Initialize socket connection
@@ -184,10 +194,19 @@ const Messages = () => {
                             <img src={msg.sharedPost.uploadedBy?.profilePhoto || `https://ui-avatars.com/api/?name=${msg.sharedPost.uploadedBy?.fullName || 'U'}`} className="w-6 h-6 rounded-full object-cover" alt="author" />
                             <span className="font-bold text-sm truncate">{msg.sharedPost.uploadedBy?.username}</span>
                           </div>
-                          <div className="block relative aspect-square bg-black/5 flex items-center justify-center">
-                            <img src={msg.sharedPost.thumbnailUrl || msg.sharedPost.mediaUrl} className="w-full h-full object-cover" alt="shared post" />
-                            {msg.sharedPost.mediaType === 'video' && <FiVideo className="absolute text-white text-3xl drop-shadow-md" />}
-                            {msg.sharedPost.mediaType === 'pdf' && <FiFileText className="absolute text-white text-3xl drop-shadow-md" />}
+                          <div className="block relative aspect-square bg-black/5 flex flex-col items-center justify-center overflow-hidden">
+                            {msg.sharedPost.mediaType === 'tool' ? (
+                              <div className="flex flex-col items-center justify-center p-4">
+                                <FiTool className={`text-4xl ${isMe ? 'text-white' : 'text-[#8B5CF6]'} mb-2`} />
+                                <span className={`font-bold text-center text-sm ${isMe ? 'text-white' : 'text-gray-800'}`}>{msg.sharedPost.toolName}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <img src={msg.sharedPost.thumbnailUrl || msg.sharedPost.mediaUrl || (msg.sharedPost.mediaUrls && msg.sharedPost.mediaUrls[0])} className="w-full h-full object-cover" alt="shared post" />
+                                {msg.sharedPost.mediaType === 'video' && <FiVideo className="absolute text-white text-3xl drop-shadow-md" />}
+                                {msg.sharedPost.mediaType === 'pdf' && <FiFileText className="absolute text-white text-3xl drop-shadow-md" />}
+                              </>
+                            )}
                           </div>
                           {msg.sharedPost.caption && (
                             <div className="p-2 text-xs truncate">

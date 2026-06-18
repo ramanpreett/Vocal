@@ -3,7 +3,7 @@ import User from '../models/User.js';
 
 export const createPost = async (req, res) => {
   try {
-    const { mediaType, caption, skill } = req.body;
+    const { mediaType, caption, skill, toolName, toolPurpose, toolLink } = req.body;
     let mediaUrl = req.body.mediaUrl;
     let thumbnailUrl = null;
 
@@ -35,6 +35,9 @@ export const createPost = async (req, res) => {
       mediaUrls,
       thumbnailUrl,
       caption,
+      toolName,
+      toolPurpose,
+      toolLink,
       skill
     });
     res.status(201).json(post);
